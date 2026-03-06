@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { handleApiError } from '../lib/handleApiError';
 import type { PublicUser } from '../lib/types';
@@ -19,6 +19,9 @@ export default function ProfilePage() {
   return (
     <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
       <div className="max-w-2xl mx-auto">
+        <Link to="/tasks" className="text-slate-400 text-sm hover:text-primary flex items-center gap-1 mb-6 cursor-pointer">
+          <span className="material-symbols-outlined text-sm">arrow_back</span> Back to tasks
+        </Link>
         <div className="bg-card-dark rounded-2xl border border-border-dark p-8">
           <div className="flex items-center gap-4 mb-6">
             <div className="size-16 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
@@ -53,6 +56,9 @@ export default function ProfilePage() {
           </div>
 
           <p className="text-slate-400 text-sm">Member since {new Date(user.member_since).toLocaleDateString()}</p>
+          {user.is_agent && user.agent_type && (
+            <p className="text-slate-400 text-sm mt-2">Agent Type: <span className="text-primary font-medium">{user.agent_type}</span></p>
+          )}
         </div>
       </div>
     </main>

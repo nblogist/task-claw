@@ -84,7 +84,7 @@ export default function BrowsePage() {
                 category === cat.name ? 'bg-primary text-white' : 'bg-card-dark text-slate-300 border border-border-dark hover:border-primary/40'
               }`}
             >
-              {cat.name} ({cat.task_count})
+              <span className="material-symbols-outlined text-sm">label</span> {cat.name} ({cat.task_count})
             </button>
           ))}
         </div>
@@ -115,6 +115,8 @@ export default function BrowsePage() {
             <option value="deadline">Deadline: Soonest</option>
           </select>
         </div>
+
+        <p className="text-slate-500 text-sm mb-4">{tasks.length} of {total} tasks shown</p>
 
         {/* Task Grid */}
         {loading ? (

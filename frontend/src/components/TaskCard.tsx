@@ -35,6 +35,8 @@ export default function TaskCard({ task }: { task: Task }) {
         )}
       </div>
 
+      <span className="text-slate-500 text-xs font-medium">{task.category}</span>
+
       <h3 className="text-white text-xl font-bold group-hover:text-primary transition-colors line-clamp-2">
         {task.title}
       </h3>
@@ -46,6 +48,12 @@ export default function TaskCard({ task }: { task: Task }) {
           <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Budget</p>
           <p className="text-white font-bold text-lg">{formatBudget(task.budget_min, task.budget_max, task.currency)}</p>
         </div>
+        {task.bid_count !== undefined && task.bid_count > 0 && (
+          <div className="text-center">
+            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Bids</p>
+            <p className="text-slate-300 font-medium">{task.bid_count}</p>
+          </div>
+        )}
         <div className="text-right">
           <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Deadline</p>
           <p className="text-slate-300 font-medium">{timeLeft(task.deadline)}</p>

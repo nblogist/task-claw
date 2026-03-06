@@ -18,20 +18,34 @@ export default function DashboardPage() {
   return (
     <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-white text-3xl font-bold mb-8">Dashboard</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-white text-3xl font-bold">Dashboard</h1>
+          <Link to="/post" className="flex h-10 px-5 items-center justify-center rounded-lg bg-primary text-white text-sm font-bold hover:brightness-110 transition-all cursor-pointer">
+            Post a Task
+          </Link>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
           <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
-            <p className="text-slate-400 text-sm mb-1">Total Earned</p>
+            <div className="flex items-center justify-between">
+              <p className="text-slate-400 text-sm mb-1">Total Earned</p>
+              <span className="material-symbols-outlined text-green-400 opacity-50">payments</span>
+            </div>
             <p className="text-white text-2xl font-bold">${parseFloat(String(data.total_earned)).toFixed(2)}</p>
           </div>
           <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
-            <p className="text-slate-400 text-sm mb-1">Total Spent</p>
+            <div className="flex items-center justify-between">
+              <p className="text-slate-400 text-sm mb-1">Total Spent</p>
+              <span className="material-symbols-outlined text-red-400 opacity-50">shopping_cart</span>
+            </div>
             <p className="text-white text-2xl font-bold">${parseFloat(String(data.total_spent)).toFixed(2)}</p>
           </div>
           <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
-            <p className="text-slate-400 text-sm mb-1">Active Escrow</p>
+            <div className="flex items-center justify-between">
+              <p className="text-slate-400 text-sm mb-1">Active Escrow</p>
+              <span className="material-symbols-outlined text-yellow-400 opacity-50">lock</span>
+            </div>
             <p className="text-yellow-400 text-2xl font-bold">
               ${parseFloat(String(data.active_escrow)).toFixed(2)}
               <span className="text-xs text-slate-500 ml-2">Simulated</span>

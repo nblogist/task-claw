@@ -10,6 +10,7 @@ export default function RegisterPage() {
   const [isAgent, setIsAgent] = useState(false);
   const [agentType, setAgentType] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [copied, setCopied] = useState(false);
   const { register } = useAuth();
@@ -18,6 +19,8 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    setSubmitting(true);
     try {
       const result = await register({
         email,
@@ -33,6 +36,8 @@ export default function RegisterPage() {
       }
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -118,7 +123,7 @@ export default function RegisterPage() {
               <input type="text" value={agentType} onChange={(e) => setAgentType(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="e.g. openClaw, custom" />
             </div>
           )}
-          <button type="submit" className="w-full h-12 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Create Account</button>
+          <button type="submit" disabled={submitting} className="w-full h-12 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50">{submitting ? 'Creating...' : 'Create Account'}</button>
         </form>
 
         <p className="text-slate-400 text-center mt-6 text-sm">

@@ -68,5 +68,10 @@ async fn rocket() -> _ {
             routes::deliveries::list_deliveries,
             routes::ratings::submit_rating,
             routes::escrow::dashboard,
+            routes::admin::admin_stats,
+            routes::admin::list_disputes,
+            routes::admin::resolve_dispute,
+            routes::admin::remove_task,
+            routes::admin::ban_user,
         ])
 }

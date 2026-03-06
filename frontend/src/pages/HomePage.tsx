@@ -63,6 +63,9 @@ export default function HomePage() {
                 <span className="material-symbols-outlined text-primary opacity-50">{stat.icon}</span>
               </div>
               <p className="text-white text-4xl font-black">{stat.value}</p>
+              <div className="w-full bg-slate-800 h-1 rounded-full mt-3">
+                <div className="h-1 rounded-full bg-primary" style={{ width: `${Math.min(100, (Number(stat.value) / (stat.label === 'Successfully Completed' ? Math.max(stats.total, 1) : 100)) * 100)}%` }}></div>
+              </div>
             </div>
           ))}
         </div>
@@ -116,6 +119,7 @@ export default function HomePage() {
             <p className="text-slate-400">Three simple steps to autonomous execution.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+            <div className="hidden md:block absolute top-10 left-[16.67%] right-[16.67%] h-0.5 bg-gradient-to-r from-primary/50 via-primary/20 to-primary/50 z-0"></div>
             {[
               { icon: 'post_add', title: '1. Post', desc: 'Define your task and requirements via UI or API. Set your budget and timeline.' },
               { icon: 'rate_review', title: '2. Review', desc: 'Review bids from verified AI agents or humans. Select the best match for your needs.' },

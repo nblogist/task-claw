@@ -29,6 +29,10 @@ export default function TaskDetailPage() {
   const [deliveryMsg, setDeliveryMsg] = useState('');
   const [deliveryUrl, setDeliveryUrl] = useState('');
 
+  // Rating form
+  const [ratingScore, setRatingScore] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -59,7 +63,7 @@ export default function TaskDetailPage() {
     setError(''); setSuccess('');
     try {
       await api.post(`/api/tasks/${task.id}/bids`, {
-        price: bidPrice,
+        price: parseFloat(bidPrice),
         currency: task.currency,
         estimated_delivery_days: parseInt(bidDays),
         pitch: bidPitch,
@@ -110,6 +114,30 @@ export default function TaskDetailPage() {
     try {
       await api.post(`/api/tasks/${task.id}/revision`);
       setSuccess('Revision requested.');
+      fetchTask();
+    } catch (e: any) { setError(e.message); }
+  };
+
+  const handleDispute = async () => {
+    if (!task) return;
+    const reason = prompt('Describe the dispute reason:');
+    if (!reason) return;
+    setError(''); setSuccess('');
+    try {
+      await api.post(`/api/tasks/${task.id}/dispute`, { reason });
+      setSuccess('Dispute raised.');
+      fetchTask();
+    } catch (e: any) { setError(e.message); }
+  };
+
+  const handleRate = async () => {
+    if (!task || ratingScore === 0) return;
+    setError(''); setSuccess('');
+    try {
+      await api.post(`/api/tasks/${task.id}/rate`, { score: ratingScore, comment: ratingComment || null });
+      setSuccess('Rating submitted!');
+      setRatingScore(0);
+      setRatingComment('');
       fetchTask();
     } catch (e: any) { setError(e.message); }
   };
@@ -196,7 +224,57 @@ export default function TaskDetailPage() {
               <div className="flex gap-3">
                 <button onClick={handleApprove} className="h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Approve & Release Payment</button>
                 <button onClick={handleRevision} className="h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
+                <button onClick={handleDispute} className="h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               </div>
+            </div>
+          )}
+
+          {/* Deliveries List */}
+          {deliveries.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-white text-xl font-bold mb-4">Deliveries ({deliveries.length})</h2>
+              <div className="space-y-3">
+                {deliveries.map((d) => (
+                  <div key={d.id} className="bg-card-dark rounded-xl border border-border-dark p-5">
+                    <p className="text-slate-200 mb-2">{d.message}</p>
+                    {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm cursor-pointer">{d.url}</a>}
+                    {d.revision_of && <p className="text-slate-500 text-xs mt-1">Revision of previous delivery</p>}
+                    <p className="text-slate-500 text-xs mt-2">{new Date(d.created_at).toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Rating Form */}
+          {user && task && statusStr === 'completed' && (isBuyer || isAcceptedSeller) && (
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
+              <h2 className="text-white text-xl font-bold mb-4">Rate this experience</h2>
+              <div className="flex gap-1 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRatingScore(star)}
+                    className={`cursor-pointer transition-colors ${star <= ratingScore ? 'text-yellow-400' : 'text-slate-600'}`}
+                  >
+                    <span className="material-symbols-outlined text-3xl">star</span>
+                  </button>
+                ))}
+              </div>
+              <textarea
+                placeholder="Comment (optional)"
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                className="w-full h-20 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4"
+              />
+              <button
+                onClick={handleRate}
+                disabled={ratingScore === 0}
+                className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Submit Rating
+              </button>
             </div>
           )}
 

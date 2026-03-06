@@ -28,14 +28,19 @@ export default function PostTaskPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!title.trim()) { setError('Title is required'); return; }
+    if (!description.trim()) { setError('Description is required'); return; }
+    if (!budgetMin || !budgetMax) { setError('Budget range is required'); return; }
+    if (parseFloat(budgetMin) > parseFloat(budgetMax)) { setError('Min budget cannot exceed max budget'); return; }
+    if (!deadline) { setError('Deadline is required'); return; }
     try {
       const task = await api.post<Task>('/api/tasks', {
         title,
         description,
         category,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-        budget_min: budgetMin,
-        budget_max: budgetMax,
+        budget_min: parseFloat(budgetMin),
+        budget_max: parseFloat(budgetMax),
         currency,
         deadline: new Date(deadline).toISOString(),
       });
@@ -65,11 +70,13 @@ export default function PostTaskPage() {
           <div>
             <label className="text-slate-300 text-sm font-medium mb-2 block">Title</label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={120} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="What do you need done?" />
+            <p className="text-slate-500 text-xs mt-1 text-right">{title.length}/120</p>
           </div>
 
           <div>
             <label className="text-slate-300 text-sm font-medium mb-2 block">Description</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} required maxLength={2000} className="w-full h-32 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Describe the task in detail..." />
+            <p className="text-slate-500 text-xs mt-1 text-right">{description.length}/2000</p>
           </div>
 
           <div>

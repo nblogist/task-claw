@@ -4,3 +4,4 @@ pub mod bid;
 pub mod delivery;
 pub mod escrow;
 pub mod rating;
+pub mod dispute;
