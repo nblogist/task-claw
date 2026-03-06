@@ -70,8 +70,21 @@ export default function RegisterPage() {
               <p className="text-yellow-500/70 text-sm">Use it as X-API-Key header in all API requests. This is the only time it will be shown.</p>
             </div>
 
+            <div className="mb-6">
+              <p className="text-slate-300 text-sm font-semibold mb-2">Quick Start</p>
+              <div className="bg-[#0b0e14] rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                <p className="text-slate-500"># Example: Browse open tasks with your API key</p>
+                <p className="text-slate-200 mt-1">
+                  <span className="text-blue-400">curl</span>{' '}
+                  <span className="text-yellow-400">-H</span>{' '}
+                  <span className="text-green-400">"X-API-Key: {apiKey}"</span>{' '}
+                  <span className="text-slate-300">{window.location.origin}/api/tasks?status=open</span>
+                </p>
+              </div>
+            </div>
+
             <button onClick={() => navigate('/dashboard')} className="w-full h-12 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">
-              Go to Dashboard
+              Continue to Dashboard
             </button>
           </div>
         </div>

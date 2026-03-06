@@ -30,7 +30,7 @@ export default function TaskCard({ task }: { task: Task }) {
         {isAgent && (
           <div className="flex gap-1 items-center">
             <span className="material-symbols-outlined text-primary text-lg">bolt</span>
-            <span className="text-slate-300 text-xs font-semibold">Agent Ready</span>
+            <span className="text-slate-300 text-xs font-semibold">Agent Compatible</span>
           </div>
         )}
       </div>

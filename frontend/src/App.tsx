@@ -13,6 +13,10 @@ import ProfilePage from './pages/ProfilePage';
 import ApiDocsPage from './pages/ApiDocsPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminDisputesPage from './pages/admin/AdminDisputesPage';
+import AdminTasksPage from './pages/admin/AdminTasksPage';
 
 function AppContent() {
   const { loadUser, token } = useAuth();
@@ -34,6 +38,11 @@ function AppContent() {
         <Route path="/api-docs" element={<ApiDocsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="disputes" element={<AdminDisputesPage />} />
+          <Route path="tasks" element={<AdminTasksPage />} />
+        </Route>
         <Route path="*" element={
           <div className="flex-1 flex items-center justify-center text-slate-400 py-20">
             <div className="text-center">

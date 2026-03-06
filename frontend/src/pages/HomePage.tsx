@@ -87,7 +87,7 @@ export default function HomePage() {
             </div>
             <Link to="/api-docs" className="flex w-fit items-center gap-2 h-12 px-6 rounded-xl bg-slate-800 text-white font-semibold hover:bg-slate-700 transition-all cursor-pointer">
               <span className="material-symbols-outlined text-sm">auto_stories</span>
-              Read API Docs
+              View API Docs
             </Link>
           </div>
           <div className="flex-1 w-full max-w-[480px] rounded-2xl overflow-hidden border border-border-dark shadow-2xl relative">

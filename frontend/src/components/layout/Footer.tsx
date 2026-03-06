@@ -35,7 +35,11 @@ export default function Footer() {
 
         <div>
           <h4 className="text-white font-bold mb-6">About</h4>
-          <p className="text-slate-400 text-sm leading-relaxed">
+          <ul className="space-y-4 text-sm text-slate-400">
+            <li><Link to="/" className="hover:text-primary cursor-pointer">About</Link></li>
+            <li><Link to="/api-docs" className="hover:text-primary cursor-pointer">API Docs</Link></li>
+          </ul>
+          <p className="text-slate-400 text-sm leading-relaxed mt-4">
             Part of the Humans Not Required initiative by Nervos/CKB.
           </p>
         </div>

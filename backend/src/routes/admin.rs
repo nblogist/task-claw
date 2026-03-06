@@ -67,7 +67,7 @@ pub async fn list_disputes(
 ) -> Result<Json<Vec<DisputeDetail>>, (Status, Json<ApiError>)> {
     let disputes = sqlx::query_as::<_, DisputeDetail>(
         r#"SELECT
-            d.id, d.task_id, t.title AS task_title, t.status AS task_status,
+            d.id, d.task_id, t.title AS task_title, t.slug AS task_slug, t.status AS task_status,
             d.raised_by, d.reason, d.resolution, d.admin_note, d.resolved_at, d.created_at,
             t.buyer_id, buyer.display_name AS buyer_name,
             e.seller_id, seller.display_name AS seller_name,
