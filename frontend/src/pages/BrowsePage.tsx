@@ -67,7 +67,7 @@ export default function BrowsePage() {
         </div>
 
         {/* Category Filter */}
-        <div className="mb-8 overflow-x-auto flex-nowrap flex gap-2 pb-2">
+        <div className="mb-8 overflow-x-auto flex-nowrap flex gap-2 pb-2 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
           <button
             onClick={() => setFilter('category', '')}
             className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${

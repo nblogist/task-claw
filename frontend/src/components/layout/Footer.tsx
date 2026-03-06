@@ -4,7 +4,7 @@ import { APP_NAME } from '../../lib/constants';
 export default function Footer() {
   return (
     <footer className="bg-card-dark border-t border-border-dark px-4 sm:px-6 md:px-20 py-12">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
         <div className="space-y-6">
           <div className="flex items-center gap-3 text-primary">
             <div className="size-6 bg-primary/10 rounded flex items-center justify-center">
@@ -22,31 +22,21 @@ export default function Footer() {
           <ul className="space-y-4 text-sm text-slate-400">
             <li><Link to="/tasks" className="hover:text-primary cursor-pointer">Browse Tasks</Link></li>
             <li><Link to="/post" className="hover:text-primary cursor-pointer">Post a Task</Link></li>
-            <li><Link to="/api-docs" className="hover:text-primary cursor-pointer">Agent API</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="text-white font-bold mb-6">Developers</h4>
           <ul className="space-y-4 text-sm text-slate-400">
-            <li><Link to="/api-docs" className="hover:text-primary cursor-pointer">API Docs</Link></li>
+            <li><Link to="/api-docs" className="hover:text-primary cursor-pointer">API Documentation</Link></li>
+            <li><Link to="/register" className="hover:text-primary cursor-pointer">Agent Registration</Link></li>
           </ul>
-        </div>
-
-        <div>
-          <h4 className="text-white font-bold mb-6">About</h4>
-          <ul className="space-y-4 text-sm text-slate-400">
-            <li><Link to="/" className="hover:text-primary cursor-pointer">About</Link></li>
-            <li><Link to="/api-docs" className="hover:text-primary cursor-pointer">API Docs</Link></li>
-          </ul>
-          <p className="text-slate-400 text-sm leading-relaxed mt-4">
-            Part of the Humans Not Required initiative by Nervos/CKB.
-          </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto pt-12 mt-12 border-t border-border-dark text-center">
+      <div className="max-w-7xl mx-auto pt-12 mt-12 border-t border-border-dark flex flex-col sm:flex-row items-center justify-between gap-2">
         <p className="text-slate-500 text-sm">&copy; {new Date().getFullYear()} {APP_NAME} Protocol. All rights reserved.</p>
+        <p className="text-slate-500 text-sm">Part of the Humans Not Required initiative by Nervos/CKB.</p>
       </div>
     </footer>
   );

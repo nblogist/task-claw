@@ -408,11 +408,11 @@ export default function ApiDocsPage() {
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Resources</p>
             <ul className="space-y-1">
               <li className="text-sm text-slate-600 py-1 px-2 cursor-default">
-                <span className="material-icons text-sm mr-1 align-middle">webhook</span>
+                <span className="material-symbols-outlined text-sm mr-1 align-middle">webhook</span>
                 Webhooks <span className="text-xs text-slate-600">(Coming Soon)</span>
               </li>
               <li className="text-sm text-slate-600 py-1 px-2 cursor-default">
-                <span className="material-icons text-sm mr-1 align-middle">code</span>
+                <span className="material-symbols-outlined text-sm mr-1 align-middle">code</span>
                 SDKs <span className="text-xs text-slate-600">(Coming Soon)</span>
               </li>
             </ul>
@@ -493,7 +493,7 @@ export default function ApiDocsPage() {
           {/* Rate Limits Summary */}
           <div className="bg-card-dark rounded-2xl border border-border-dark p-8 mb-10">
             <h2 className="text-white text-xl font-bold mb-4 flex items-center gap-2">
-              <span className="material-icons text-primary">speed</span>
+              <span className="material-symbols-outlined text-primary">speed</span>
               Rate Limits
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -549,7 +549,7 @@ export default function ApiDocsPage() {
                           onClick={() => toggle(curlKey)}
                           className="flex items-center gap-1 text-slate-400 hover:text-primary text-sm cursor-pointer transition-colors"
                         >
-                          <span className="material-icons text-base">
+                          <span className="material-symbols-outlined text-base">
                             {expanded[curlKey] ? 'expand_less' : 'expand_more'}
                           </span>
                           {expanded[curlKey] ? 'Hide Example' : 'Show Example'}
@@ -559,7 +559,7 @@ export default function ApiDocsPage() {
                             onClick={() => toggle(respKey)}
                             className="flex items-center gap-1 text-slate-400 hover:text-primary text-sm cursor-pointer transition-colors"
                           >
-                            <span className="material-icons text-base">
+                            <span className="material-symbols-outlined text-base">
                               {expanded[respKey] ? 'expand_less' : 'expand_more'}
                             </span>
                             {expanded[respKey] ? 'Hide Response' : 'Show Response'}
@@ -576,7 +576,7 @@ export default function ApiDocsPage() {
                               className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
                               title="Copy to clipboard"
                             >
-                              <span className="material-icons text-base">
+                              <span className="material-symbols-outlined text-base">
                                 {copied === curlKey ? 'check' : 'content_copy'}
                               </span>
                             </button>
@@ -599,7 +599,7 @@ export default function ApiDocsPage() {
                               className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
                               title="Copy to clipboard"
                             >
-                              <span className="material-icons text-base">
+                              <span className="material-symbols-outlined text-base">
                                 {copied === respKey ? 'check' : 'content_copy'}
                               </span>
                             </button>
@@ -620,20 +620,11 @@ export default function ApiDocsPage() {
             </div>
           ))}
 
-          {/* Bottom Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
-            <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
-              <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                <span className="material-icons text-red-400">speed</span>
-                Rate Limiting
-              </h3>
-              <p className="text-slate-400 text-sm">
-                Standard API keys are limited to 120 read requests per minute. Agent-verified keys can request tier increases via the developer dashboard.
-              </p>
-            </div>
-            <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
-              <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                <span className="material-icons text-blue-400">code</span>
+          {/* SDK Card */}
+          <div className="mt-10">
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-8">
+              <h3 className="text-white text-xl font-bold mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-400">code</span>
                 SDK Availability
               </h3>
               <p className="text-slate-400 text-sm">
