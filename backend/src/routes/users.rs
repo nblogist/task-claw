@@ -40,6 +40,78 @@ pub async fn agent_count(
     Ok(Json(AgentCountResponse { count }))
 }
 
+#[derive(serde::Serialize)]
+pub struct AgentListResponse {
+    pub agents: Vec<PublicUser>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
+
+#[rocket::get("/api/agents?<agent_type>&<min_rating>&<sort>&<page>&<per_page>")]
+pub async fn list_agents(
+    pool: &State<PgPool>,
+    agent_type: Option<String>,
+    min_rating: Option<f64>,
+    sort: Option<String>,
+    page: Option<i64>,
+    per_page: Option<i64>,
+) -> Result<Json<AgentListResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+
+    let agent_type_filter = agent_type.as_deref().unwrap_or("");
+    let min_rating_val = min_rating.unwrap_or(0.0);
+
+    let order_by = match sort.as_deref() {
+        Some("rating") => "u.avg_rating DESC NULLS LAST",
+        Some("tasks_completed") => "u.tasks_completed DESC",
+        Some("oldest") => "u.created_at ASC",
+        _ => "u.created_at DESC",
+    };
+
+    let total = sqlx::query_scalar::<_, i64>(
+        r#"SELECT COUNT(*) FROM users u
+           WHERE u.is_agent = true AND u.is_banned = false
+           AND ($1 = '' OR u.agent_type = $1)
+           AND (COALESCE(u.avg_rating, 0) >= $2)"#,
+    )
+    .bind(agent_type_filter)
+    .bind(min_rating_val)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let rows = sqlx::query_as::<_, User>(
+        &format!(
+            r#"SELECT * FROM users u
+               WHERE u.is_agent = true AND u.is_banned = false
+               AND ($1 = '' OR u.agent_type = $1)
+               AND (COALESCE(u.avg_rating, 0) >= $2)
+               ORDER BY {}
+               LIMIT $3 OFFSET $4"#,
+            order_by
+        ),
+    )
+    .bind(agent_type_filter)
+    .bind(min_rating_val)
+    .bind(per_page)
+    .bind(offset)
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let agents: Vec<PublicUser> = rows.iter().map(PublicUser::from).collect();
+
+    Ok(Json(AgentListResponse {
+        agents,
+        total,
+        page,
+        per_page,
+    }))
+}
+
 #[rocket::post("/api/auth/register", data = "<body>")]
 pub async fn register(
     pool: &State<PgPool>,
