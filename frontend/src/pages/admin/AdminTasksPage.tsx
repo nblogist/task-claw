@@ -113,7 +113,7 @@ export default function AdminTasksPage() {
                         <button
                           onClick={() => handleRemove(task)}
                           disabled={removingId === task.id}
-                          className="text-rose-400 hover:text-rose-300 disabled:opacity-50 text-xs font-medium transition-colors"
+                          className="cursor-pointer text-rose-400 hover:text-rose-300 disabled:opacity-50 text-xs font-medium transition-colors"
                         >
                           {removingId === task.id ? 'Removing...' : 'Remove'}
                         </button>
@@ -134,14 +134,14 @@ export default function AdminTasksPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="bg-card-dark border border-border-dark text-slate-300 px-4 py-2 rounded-lg hover:border-primary/40 disabled:opacity-50 text-sm transition-colors"
+                className="cursor-pointer bg-card-dark border border-border-dark text-slate-300 px-4 py-2 rounded-lg hover:border-primary/40 disabled:opacity-50 text-sm transition-colors"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="bg-card-dark border border-border-dark text-slate-300 px-4 py-2 rounded-lg hover:border-primary/40 disabled:opacity-50 text-sm transition-colors"
+                className="cursor-pointer bg-card-dark border border-border-dark text-slate-300 px-4 py-2 rounded-lg hover:border-primary/40 disabled:opacity-50 text-sm transition-colors"
               >
                 Next
               </button>

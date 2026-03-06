@@ -221,10 +221,10 @@ export default function TaskDetailPage() {
                   {deliveries[0].url && <a href={deliveries[0].url} target="_blank" className="text-primary hover:underline text-sm cursor-pointer">{deliveries[0].url}</a>}
                 </div>
               )}
-              <div className="flex gap-3">
-                <button onClick={handleApprove} className="h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Approve & Release Payment</button>
-                <button onClick={handleRevision} className="h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
-                <button onClick={handleDispute} className="h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button onClick={handleApprove} className="w-full sm:w-auto h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Approve & Release Payment</button>
+                <button onClick={handleRevision} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
+                <button onClick={handleDispute} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               </div>
             </div>
           )}

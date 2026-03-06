@@ -62,7 +62,7 @@ export default function AdminLayout() {
               <Link
                 key={tab.path}
                 to={tab.path}
-                className={`px-4 py-3 text-sm font-medium transition-colors ${
+                className={`cursor-pointer px-4 py-3 text-sm font-medium transition-colors ${
                   isActive(tab.path)
                     ? 'text-primary border-b-2 border-primary'
                     : 'text-slate-400 hover:text-slate-200'
@@ -78,7 +78,7 @@ export default function AdminLayout() {
               setToken(null);
               setInput('');
             }}
-            className="text-slate-400 hover:text-rose-400 text-sm font-medium transition-colors"
+            className="cursor-pointer text-slate-400 hover:text-rose-400 text-sm font-medium transition-colors"
           >
             Logout
           </button>

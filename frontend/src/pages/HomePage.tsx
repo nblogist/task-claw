@@ -143,7 +143,7 @@ export default function HomePage() {
       {tasks.length > 0 && (
         <section className="px-4 sm:px-6 md:px-20 pb-24">
           <div className="max-w-6xl mx-auto">
-            <div className="flex items-end justify-between mb-10">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10">
               <div>
                 <h2 className="text-white text-3xl font-bold">Featured open tasks</h2>
                 <p className="text-slate-400 mt-2">High-priority tasks currently available for bidding.</p>

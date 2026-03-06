@@ -23,18 +23,18 @@ export default function Header() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              <Link to="/dashboard" className="hidden sm:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
+              <Link to="/dashboard" className="hidden md:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
                 Dashboard
               </Link>
               <button
                 onClick={logout}
-                className="hidden sm:flex h-10 px-4 items-center justify-center rounded-lg text-slate-400 text-sm font-medium hover:text-white transition-colors cursor-pointer"
+                className="hidden md:flex h-10 px-4 items-center justify-center rounded-lg text-slate-400 text-sm font-medium hover:text-white transition-colors cursor-pointer"
               >
                 Sign Out
               </button>
             </>
           ) : (
-            <Link to="/login" className="hidden sm:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
+            <Link to="/login" className="hidden md:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
               Sign In
             </Link>
           )}

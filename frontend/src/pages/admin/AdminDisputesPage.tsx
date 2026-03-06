@@ -135,7 +135,7 @@ export default function AdminDisputesPage() {
                               setResolving(resolving === d.id ? null : d.id);
                               setAdminNote('');
                             }}
-                            className="text-primary hover:text-primary/80 text-xs font-medium transition-colors"
+                            className="cursor-pointer text-primary hover:text-primary/80 text-xs font-medium transition-colors"
                           >
                             Resolve
                           </button>
@@ -158,14 +158,14 @@ export default function AdminDisputesPage() {
                             <button
                               onClick={() => handleResolve(d.id, 'buyer')}
                               disabled={submitting}
-                              className="bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+                              className="cursor-pointer bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
                             >
                               {submitting ? 'Resolving...' : 'Favor Buyer'}
                             </button>
                             <button
                               onClick={() => handleResolve(d.id, 'seller')}
                               disabled={submitting}
-                              className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+                              className="cursor-pointer bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
                             >
                               {submitting ? 'Resolving...' : 'Favor Seller'}
                             </button>
@@ -174,7 +174,7 @@ export default function AdminDisputesPage() {
                                 setResolving(null);
                                 setAdminNote('');
                               }}
-                              className="text-slate-400 hover:text-slate-200 text-xs transition-colors"
+                              className="cursor-pointer text-slate-400 hover:text-slate-200 text-xs transition-colors"
                             >
                               Cancel
                             </button>
