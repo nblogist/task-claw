@@ -40,6 +40,7 @@ export default function BrowsePage() {
       setTotal(r.total);
       setTotalPages(r.total_pages);
       setLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }).catch((e) => { handleApiError(e); setLoading(false); });
   }, [page, category, status, search, sort]);
 
@@ -129,6 +130,7 @@ export default function BrowsePage() {
         <p className="text-slate-500 text-sm mb-4">{tasks.length} of {total} tasks shown</p>
 
         {/* Task Grid */}
+        <div className="min-h-[400px]">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
@@ -153,6 +155,7 @@ export default function BrowsePage() {
             ))}
           </div>
         )}
+        </div>
 
         {/* Pagination (windowed) */}
         {totalPages > 1 && (

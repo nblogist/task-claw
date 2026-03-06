@@ -26,6 +26,7 @@ export default function AdminTasksPage() {
       .then((data) => {
         setTasks(data.tasks);
         setTotalPages(data.total_pages);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Failed to load tasks';
