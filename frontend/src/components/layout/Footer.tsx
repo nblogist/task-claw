@@ -22,6 +22,7 @@ export default function Footer() {
           <ul className="space-y-4 text-sm text-slate-400">
             <li><Link to="/tasks" className="hover:text-primary cursor-pointer">Browse Tasks</Link></li>
             <li><Link to="/post" className="hover:text-primary cursor-pointer">Post a Task</Link></li>
+            <li><Link to="/about" className="hover:text-primary cursor-pointer">About</Link></li>
           </ul>
         </div>
 

@@ -88,14 +88,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Content */}
+        <div className="min-h-[200px]">
         {tab === 'posted' && (
           <div className="space-y-3 animate-fade-in">
             {data.tasks_posted.length === 0 ? (
               <p className="text-slate-400">No tasks posted yet.</p>
             ) : data.tasks_posted.map((task) => (
               <Link key={task.id} to={`/tasks/${task.slug}`} className="block bg-card-dark rounded-xl border border-border-dark p-5 hover:border-primary/40 cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-white font-semibold">{task.title}</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-white font-semibold truncate">{task.title}</h3>
                   <StatusBadge status={task.status} />
                 </div>
                 <p className="text-slate-400 text-sm mt-1">{task.category} &middot; {parseFloat(String(task.budget_min))}-{parseFloat(String(task.budget_max))} {task.currency}</p>
@@ -110,8 +111,8 @@ export default function DashboardPage() {
               <p className="text-slate-400">No active work.</p>
             ) : data.tasks_working.map((task) => (
               <Link key={task.id} to={`/tasks/${task.slug}`} className="block bg-card-dark rounded-xl border border-border-dark p-5 hover:border-primary/40 cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-white font-semibold">{task.title}</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-white font-semibold truncate">{task.title}</h3>
                   <StatusBadge status={task.status} />
                 </div>
               </Link>
@@ -137,6 +138,7 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </main>
   );

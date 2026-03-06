@@ -37,6 +37,7 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import NotificationsPage from './pages/NotificationsPage';
+import AboutPage from './pages/AboutPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminDisputesPage from './pages/admin/AdminDisputesPage';
@@ -59,7 +60,7 @@ function AppContent() {
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-dark text-slate-100">
       {!isAdmin && <Header />}
-      <div key={location.pathname} className="animate-page-in flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/tasks" element={<BrowsePage />} />
@@ -74,6 +75,7 @@ function AppContent() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="disputes" element={<AdminDisputesPage />} />

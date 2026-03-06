@@ -47,6 +47,15 @@ body {
   animation: fadeInUp 0.2s ease-out;
 }
 
+/* Smooth expand / collapse (grid-template-rows trick) */
+.expand-wrapper {
+  display: grid;
+  transition: grid-template-rows 0.25s ease-out, opacity 0.2s ease-out;
+}
+.expand-wrapper[data-open="true"]  { grid-template-rows: 1fr; opacity: 1; }
+.expand-wrapper[data-open="false"] { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
+.expand-wrapper > .expand-inner { overflow: hidden; min-height: 0; }
+
 /* Loading skeleton pulse */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

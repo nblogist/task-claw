@@ -112,4 +112,6 @@ pub struct TaskDetail {
     pub task: Task,
     pub bid_count: i64,
     pub buyer: super::user::PublicUser,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub my_rating: Option<super::rating::Rating>,
 }

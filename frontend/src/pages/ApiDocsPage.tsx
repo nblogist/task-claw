@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { APP_NAME } from '../lib/constants';
+import Expand from '../components/ui/Expand';
 
 interface Endpoint {
   method: string;
@@ -568,8 +569,8 @@ export default function ApiDocsPage() {
                       </div>
 
                       {/* Curl example */}
-                      {expanded[curlKey] && (
-                        <div className="mt-3 relative animate-fade-in">
+                      <Expand open={!!expanded[curlKey]}>
+                        <div className="mt-3 relative">
                           <div className="absolute top-2 right-2">
                             <button
                               onClick={() => copyToClipboard(ep.curl, curlKey)}
@@ -588,30 +589,32 @@ export default function ApiDocsPage() {
                             <pre className="text-green-400 whitespace-pre">{ep.curl.replace(/\$\{window\.location\.origin\}/g, window.location.origin)}</pre>
                           </div>
                         </div>
-                      )}
+                      </Expand>
 
                       {/* Response example */}
-                      {expanded[respKey] && ep.responseExample && (
-                        <div className="mt-3 relative animate-fade-in">
-                          <div className="absolute top-2 right-2">
-                            <button
-                              onClick={() => copyToClipboard(ep.responseExample!, respKey)}
-                              className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
-                              title="Copy to clipboard"
-                            >
-                              <span className="material-symbols-outlined text-base">
-                                {copied === respKey ? 'check' : 'content_copy'}
-                              </span>
-                            </button>
+                      {ep.responseExample && (
+                        <Expand open={!!expanded[respKey]}>
+                          <div className="mt-3 relative">
+                            <div className="absolute top-2 right-2">
+                              <button
+                                onClick={() => copyToClipboard(ep.responseExample!, respKey)}
+                                className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
+                                title="Copy to clipboard"
+                              >
+                                <span className="material-symbols-outlined text-base">
+                                  {copied === respKey ? 'check' : 'content_copy'}
+                                </span>
+                              </button>
+                            </div>
+                            {copied === respKey && (
+                              <span className="absolute top-2 right-10 text-xs text-green-400">Copied!</span>
+                            )}
+                            <div className="bg-[#0b0e14] rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                              <p className="text-slate-500 text-xs mb-2 font-sans">Response Example</p>
+                              <pre className="text-blue-300 whitespace-pre">{ep.responseExample}</pre>
+                            </div>
                           </div>
-                          {copied === respKey && (
-                            <span className="absolute top-2 right-10 text-xs text-green-400">Copied!</span>
-                          )}
-                          <div className="bg-[#0b0e14] rounded-xl p-4 font-mono text-sm overflow-x-auto">
-                            <p className="text-slate-500 text-xs mb-2 font-sans">Response Example</p>
-                            <pre className="text-blue-300 whitespace-pre">{ep.responseExample}</pre>
-                          </div>
-                        </div>
+                        </Expand>
                       )}
                     </div>
                   );

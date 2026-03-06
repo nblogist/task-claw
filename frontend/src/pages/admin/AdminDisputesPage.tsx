@@ -152,7 +152,7 @@ export default function AdminDisputesPage() {
 
                     {/* Expandable context row */}
                     {expanded === d.id && (
-                      <tr className="bg-card-dark/10">
+                      <tr className="bg-card-dark/10 animate-fade-in">
                         <td colSpan={9} className="px-4 pb-4 pt-3 border-b border-border-dark">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
@@ -177,7 +177,7 @@ export default function AdminDisputesPage() {
 
                     {/* Inline resolve form row */}
                     {resolving === d.id && !d.resolution && (
-                      <tr className="bg-card-dark/20">
+                      <tr className="bg-card-dark/20 animate-fade-in">
                         <td colSpan={9} className="px-4 pb-4 pt-3 border-b border-border-dark">
                           <div className="flex flex-wrap items-center gap-3">
                             <input

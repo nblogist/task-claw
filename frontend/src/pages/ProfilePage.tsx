@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { handleApiError } from '../lib/handleApiError';
 import type { PublicUser } from '../lib/types';
+import Expand from '../components/ui/Expand';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -76,11 +77,11 @@ export default function ProfilePage() {
         </Link>
         <div className="bg-card-dark rounded-2xl border border-border-dark p-8">
           <div className="flex items-center gap-4 mb-6">
-            <div className="size-16 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
+            <div className="size-12 sm:size-16 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xl sm:text-2xl font-bold">
               {user.display_name[0]?.toUpperCase()}
             </div>
             <div>
-              <h1 className="text-white text-2xl font-bold">{user.display_name}</h1>
+              <h1 className="text-white text-xl sm:text-2xl font-bold">{user.display_name}</h1>
               <div className="flex items-center gap-2">
                 {user.is_agent && <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold">AGENT</span>}
                 {user.agent_type && <span className="text-slate-400 text-sm">{user.agent_type}</span>}
@@ -90,7 +91,7 @@ export default function ProfilePage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div className="bg-background-dark rounded-xl p-4 text-center">
-              <p className="text-white text-xl font-bold">{user.avg_rating ? user.avg_rating.toFixed(1) : '-'}</p>
+              <p className="text-white text-xl font-bold">{user.avg_rating ? Number(user.avg_rating).toFixed(1) : '-'}</p>
               <p className="text-slate-400 text-xs">Rating</p>
             </div>
             <div className="bg-background-dark rounded-xl p-4 text-center">
@@ -115,44 +116,46 @@ export default function ProfilePage() {
             <p className="text-slate-400 text-sm mt-2">Agent Type: <span className="text-primary font-medium">{user.agent_type}</span></p>
           )}
 
-          {isOwnProfile && !editing && (
-            <button
-              onClick={() => { setEditName(user.display_name); setEditBio(''); setEditing(true); }}
-              className="mt-4 h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer"
-            >
-              Edit Profile
-            </button>
-          )}
-
-          {editing && (
-            <div className="mt-6 space-y-4 border-t border-border-dark pt-6 animate-fade-in">
-              {editError && <p className="text-red-400 text-sm">{editError}</p>}
-              <div>
-                <label className="text-slate-300 text-sm font-medium mb-2 block">Display Name</label>
-                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" />
-              </div>
-              <div>
-                <label className="text-slate-300 text-sm font-medium mb-2 block">Bio</label>
-                <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} maxLength={500} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Tell us about yourself..." />
-              </div>
-              <div className="flex gap-3">
-                <button onClick={handleSaveProfile} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Save</button>
-                <button onClick={() => setEditing(false)} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
-              </div>
-            </div>
+          {isOwnProfile && (
+            <>
+              {!editing && (
+                <button
+                  onClick={() => { setEditName(user.display_name); setEditBio(user.bio || ''); setEditing(true); }}
+                  className="mt-4 h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  Edit Profile
+                </button>
+              )}
+              <Expand open={editing}>
+                <div className="mt-6 space-y-4 border-t border-border-dark pt-6">
+                  {editError && <p className="text-red-400 text-sm">{editError}</p>}
+                  <div>
+                    <label className="text-slate-300 text-sm font-medium mb-2 block">Display Name</label>
+                    <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-slate-300 text-sm font-medium mb-2 block">Bio</label>
+                    <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} maxLength={500} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Tell us about yourself..." />
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={handleSaveProfile} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Save</button>
+                    <button onClick={() => setEditing(false)} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+                  </div>
+                </div>
+              </Expand>
+            </>
           )}
 
           {isOwnProfile && !editing && (
             <div className="mt-8 border-t border-border-dark pt-6">
-              {!showDeleteConfirm ? (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="h-10 px-6 bg-red-600/10 text-red-400 border border-red-600/20 rounded-lg text-sm font-bold hover:bg-red-600/20 transition-all cursor-pointer"
-                >
-                  Delete Account
-                </button>
-              ) : (
-                <div className="space-y-3 animate-fade-in">
+              <button
+                onClick={() => setShowDeleteConfirm(v => !v)}
+                className="h-10 px-6 bg-red-600/10 text-red-400 border border-red-600/20 rounded-lg text-sm font-bold hover:bg-red-600/20 transition-all cursor-pointer"
+              >
+                Delete Account
+              </button>
+              <Expand open={showDeleteConfirm}>
+                <div className="space-y-3 mt-4">
                   <p className="text-red-400 text-sm font-semibold">This action is permanent and cannot be undone.</p>
                   {deleteError && <p className="text-red-400 text-sm">{deleteError}</p>}
                   <input
@@ -167,7 +170,7 @@ export default function ProfilePage() {
                     <button onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); setDeleteError(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
                   </div>
                 </div>
-              )}
+              </Expand>
             </div>
           )}
         </div>

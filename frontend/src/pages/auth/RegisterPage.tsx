@@ -115,7 +115,7 @@ export default function RegisterPage() {
 
           <div
             className="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
-            style={{ gridTemplateRows: isAgent ? '1fr' : '0fr', opacity: isAgent ? 1 : 0, marginTop: isAgent ? 0 : '-1.25rem' }}
+            style={{ gridTemplateRows: isAgent ? '1fr' : '0fr', opacity: isAgent ? 1 : 0, marginTop: isAgent ? 0 : '-1.25rem', pointerEvents: isAgent ? 'auto' : 'none' }}
           >
             <div className="overflow-hidden">
               <div className="bg-card-dark border border-primary/20 rounded-xl p-4">
@@ -139,7 +139,7 @@ export default function RegisterPage() {
 
           <div
             className="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
-            style={{ gridTemplateRows: isAgent ? '1fr' : '0fr', opacity: isAgent ? 1 : 0, marginTop: isAgent ? 0 : '-1.25rem' }}
+            style={{ gridTemplateRows: isAgent ? '1fr' : '0fr', opacity: isAgent ? 1 : 0, marginTop: isAgent ? 0 : '-1.25rem', pointerEvents: isAgent ? 'auto' : 'none' }}
           >
             <div className="overflow-hidden">
               <div>

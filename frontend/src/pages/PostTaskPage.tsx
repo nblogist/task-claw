@@ -96,7 +96,7 @@ export default function PostTaskPage() {
 
         <h1 className="text-white text-3xl font-bold mb-8">Post a New Task</h1>
 
-        {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm">{error}</div>}
+        {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm animate-fade-in">{error}</div>}
 
         <form onSubmit={handleSubmit} className="bg-card-dark rounded-2xl border border-border-dark p-8 space-y-6">
           <div>

@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { Task, Bid, Delivery } from '../lib/types';
 import StatusBadge from '../components/StatusBadge';
+import Expand from '../components/ui/Expand';
 
 interface TaskDetail extends Task {
   bid_count: number;
@@ -50,6 +51,7 @@ export default function TaskDetailPage() {
     try {
       const t = await api.get<TaskDetail>(`/api/tasks/${slug}`);
       setTask(t);
+      if ((t as any).my_rating) setHasRated(true);
       const b = await api.get<BidWithSeller[]>(`/api/tasks/${slug}/bids`);
       setBids(b);
       if (t.id) {
@@ -232,7 +234,7 @@ export default function TaskDetailPage() {
 
           {/* Bid Form */}
           {canBid && !alreadyBid && (
-            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Submit a Bid</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <input type="number" placeholder={`Price (${parseFloat(String(task.budget_min)).toLocaleString()} - ${parseFloat(String(task.budget_max)).toLocaleString()})`} value={bidPrice} onChange={(e) => setBidPrice(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" />
@@ -245,7 +247,7 @@ export default function TaskDetailPage() {
 
           {/* Delivery Form (for accepted seller) */}
           {isAcceptedSeller && (statusStr === 'in_escrow' || statusStr === 'inescrow') && (
-            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Submit Delivery</h2>
               <textarea placeholder="Delivery message (max 1000 chars)" value={deliveryMsg} onChange={(e) => setDeliveryMsg(e.target.value)} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
               <input type="url" placeholder="URL (optional)" value={deliveryUrl} onChange={(e) => setDeliveryUrl(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none mb-4" />
@@ -255,7 +257,7 @@ export default function TaskDetailPage() {
 
           {/* Buyer Approve/Revision */}
           {isBuyer && (statusStr === 'delivered') && (
-            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Review Delivery</h2>
               {deliveries.length > 0 && (
                 <div className="bg-background-dark rounded-xl p-4 mb-4">
@@ -268,7 +270,7 @@ export default function TaskDetailPage() {
                 <button onClick={() => setShowRevisionForm(!showRevisionForm)} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
                 <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               </div>
-              {showRevisionForm && (
+              <Expand open={showRevisionForm}>
                 <div className="mt-4 space-y-3">
                   <textarea
                     value={revisionMessage}
@@ -281,8 +283,8 @@ export default function TaskDetailPage() {
                     <button onClick={() => { setShowRevisionForm(false); setRevisionMessage(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
-              )}
-              {showDisputeForm && (
+              </Expand>
+              <Expand open={showDisputeForm}>
                 <div className="mt-4 space-y-3">
                   <textarea
                     value={disputeReason}
@@ -295,7 +297,7 @@ export default function TaskDetailPage() {
                     <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
-              )}
+              </Expand>
             </div>
           )}
 
@@ -303,7 +305,7 @@ export default function TaskDetailPage() {
           {isAcceptedSeller && (statusStr === 'delivered' || statusStr === 'in_escrow' || statusStr === 'inescrow') && (
             <div className="mb-6">
               <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-sm font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
-              {showDisputeForm && (
+              <Expand open={showDisputeForm}>
                 <div className="mt-3 space-y-3">
                   <textarea
                     value={disputeReason}
@@ -316,13 +318,13 @@ export default function TaskDetailPage() {
                     <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
-              )}
+              </Expand>
             </div>
           )}
 
           {/* Deliveries List */}
           {deliveries.length > 0 && (
-            <div className="mb-8">
+            <div className="mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Deliveries ({deliveries.length})</h2>
               <div className="space-y-3">
                 {deliveries.map((d) => (
@@ -339,7 +341,7 @@ export default function TaskDetailPage() {
 
           {/* Rating Form */}
           {user && task && statusStr === 'completed' && (isBuyer || isAcceptedSeller) && !hasRated && (
-            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Rate this experience</h2>
               <div className="flex gap-1 mb-4">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -408,7 +410,7 @@ export default function TaskDetailPage() {
 
         {/* Sidebar */}
         <div className="w-full lg:w-80 flex-shrink-0">
-          <div className="bg-card-dark rounded-2xl border border-border-dark p-6 space-y-6 sticky top-24">
+          <div className="bg-card-dark rounded-2xl border border-border-dark p-6 space-y-6 lg:sticky lg:top-24">
             <div>
               <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Budget</p>
               <p className="text-white text-2xl font-bold">

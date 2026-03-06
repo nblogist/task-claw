@@ -256,10 +256,25 @@ pub async fn get_task(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
+    // Check if the authenticated user already rated this task
+    let my_rating = if let Some(ref a) = auth {
+        sqlx::query_as::<_, crate::models::rating::Rating>(
+            "SELECT * FROM ratings WHERE task_id = $1 AND rater_id = $2"
+        )
+        .bind(task.id)
+        .bind(a.user_id)
+        .fetch_optional(pool.inner())
+        .await
+        .unwrap_or(None)
+    } else {
+        None
+    };
+
     Ok(Json(TaskDetail {
         task,
         bid_count,
         buyer: PublicUser::from(&buyer),
+        my_rating,
     }))
 }
 
