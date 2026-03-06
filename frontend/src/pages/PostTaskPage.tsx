@@ -134,7 +134,7 @@ export default function PostTaskPage() {
 
           <div>
             <label className="text-slate-300 text-sm font-medium mb-2 block">Deadline</label>
-            <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" />
+            <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none [color-scheme:dark] cursor-pointer" />
           </div>
 
           <button type="submit" className="w-full h-14 bg-primary text-white rounded-xl text-lg font-bold hover:brightness-110 transition-all cursor-pointer">Post Task</button>

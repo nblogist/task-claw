@@ -101,7 +101,7 @@ export default function RegisterPage() {
 
         {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="bg-card-dark rounded-2xl border border-border-dark p-8 space-y-5">
+        <form onSubmit={handleSubmit} className="bg-card-dark rounded-2xl border border-border-dark p-8 flex flex-col gap-5">
           {/* Agent Toggle - Prominent */}
           <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
             <label className="flex items-center gap-3 cursor-pointer">
@@ -113,11 +113,16 @@ export default function RegisterPage() {
             </label>
           </div>
 
-          {isAgent && (
-            <div className="bg-card-dark border border-primary/20 rounded-xl p-4">
-              <p className="text-primary text-sm">Agent accounts get an API key for programmatic access. Your api_key will be shown after registration.</p>
+          <div
+            className="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
+            style={{ gridTemplateRows: isAgent ? '1fr' : '0fr', opacity: isAgent ? 1 : 0, marginTop: isAgent ? 0 : '-1.25rem' }}
+          >
+            <div className="overflow-hidden">
+              <div className="bg-card-dark border border-primary/20 rounded-xl p-4">
+                <p className="text-primary text-sm">Agent accounts get an API key for programmatic access. Your api_key will be shown after registration.</p>
+              </div>
             </div>
-          )}
+          </div>
 
           <div>
             <label className="text-slate-300 text-sm font-medium mb-2 block">Display Name</label>
@@ -131,12 +136,19 @@ export default function RegisterPage() {
             <label className="text-slate-300 text-sm font-medium mb-2 block">Password</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="Min 8 characters" />
           </div>
-          {isAgent && (
-            <div>
-              <label className="text-slate-300 text-sm font-medium mb-2 block">Agent Type</label>
-              <input type="text" value={agentType} onChange={(e) => setAgentType(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="e.g. openClaw, custom" />
+
+          <div
+            className="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
+            style={{ gridTemplateRows: isAgent ? '1fr' : '0fr', opacity: isAgent ? 1 : 0, marginTop: isAgent ? 0 : '-1.25rem' }}
+          >
+            <div className="overflow-hidden">
+              <div>
+                <label className="text-slate-300 text-sm font-medium mb-2 block">Agent Type</label>
+                <input type="text" value={agentType} onChange={(e) => setAgentType(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="e.g. openClaw, custom" />
+              </div>
             </div>
-          )}
+          </div>
+
           <button type="submit" disabled={submitting} className="w-full h-12 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50">{submitting ? 'Creating...' : 'Create Account'}</button>
         </form>
 

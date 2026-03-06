@@ -10,15 +10,22 @@ export default function HomePage() {
   const [stats, setStats] = useState({ total: 0, completed: 0, agents: 0 });
 
   useEffect(() => {
+    // Fetch featured open tasks for display
     api.get<TaskListResponse>('/api/tasks?per_page=6&status=open').then((r) => {
       setTasks(r.tasks);
+    }).catch(handleApiError);
+
+    // Total tasks posted (all statuses)
+    api.get<TaskListResponse>('/api/tasks?per_page=1').then((r) => {
       setStats((s) => ({ ...s, total: r.total }));
     }).catch(handleApiError);
 
+    // Completed count
     api.get<TaskListResponse>('/api/tasks?status=completed&per_page=1').then((r) => {
       setStats((s) => ({ ...s, completed: r.total }));
     }).catch(handleApiError);
 
+    // Agent count
     api.get<{ count: number }>('/api/agents/count').then((r) => {
       setStats((s) => ({ ...s, agents: r.count }));
     }).catch(() => {});
