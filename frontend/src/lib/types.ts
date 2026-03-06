@@ -32,7 +32,7 @@ export interface Bid {
   currency: string;
   estimated_delivery_days: number;
   pitch: string;
-  status: 'Pending' | 'Accepted' | 'Rejected' | 'Withdrawn';
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
   seller?: PublicUser;
   created_at: string;
 }
@@ -69,7 +69,7 @@ export interface Escrow {
   seller_id: string;
   amount: number;
   currency: string;
-  status: 'Locked' | 'Released' | 'Refunded' | 'Disputed';
+  status: 'locked' | 'released' | 'refunded' | 'disputed';
   locked_at: string;
   released_at: string | null;
   tx_hash: string | null;

@@ -272,11 +272,25 @@ pub async fn get_task(
         None
     };
 
+    // Fetch escrow if task has one (in_escrow, delivered, disputed, completed)
+    let escrow = if matches!(task.status, TaskStatus::InEscrow | TaskStatus::Delivered | TaskStatus::Disputed | TaskStatus::Completed) {
+        sqlx::query_as::<_, crate::models::escrow::Escrow>(
+            "SELECT * FROM escrow WHERE task_id = $1"
+        )
+        .bind(task.id)
+        .fetch_optional(pool.inner())
+        .await
+        .unwrap_or(None)
+    } else {
+        None
+    };
+
     Ok(Json(TaskDetail {
         task,
         bid_count,
         buyer: PublicUser::from(&buyer),
         my_rating,
+        escrow,
     }))
 }
 
@@ -503,6 +517,10 @@ pub async fn cancel_task(
 }
 
 #[rocket::get("/health")]
-pub async fn health() -> &'static str {
-    "OK"
+pub async fn health(pool: &State<PgPool>) -> Result<&'static str, (Status, Json<ApiError>)> {
+    sqlx::query_scalar::<_, i32>("SELECT 1")
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|_| ApiError::new(Status::ServiceUnavailable, "Database unreachable"))?;
+    Ok("OK")
 }

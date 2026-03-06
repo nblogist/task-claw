@@ -220,19 +220,6 @@ pub async fn request_revision(
 
     let revision_msg = body.and_then(|b| b.into_inner().message).unwrap_or_default();
 
-    // Store revision message as a delivery note from buyer
-    if !revision_msg.is_empty() {
-        sqlx::query(
-            "INSERT INTO deliveries (task_id, seller_id, message, revision_of) VALUES ($1, $2, $3, (SELECT id FROM deliveries WHERE task_id = $1 ORDER BY created_at DESC LIMIT 1))"
-        )
-        .bind(task_id)
-        .bind(auth.user_id)
-        .bind(&format!("[Revision Request] {}", revision_msg))
-        .execute(pool.inner())
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
-    }
-
     // Return to in_escrow for resubmission
     let updated = sqlx::query_as::<_, Task>(
         "UPDATE tasks SET status = 'in_escrow', updated_at = now() WHERE id = $1 RETURNING *"
@@ -242,14 +229,19 @@ pub async fn request_revision(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    // Notify seller about revision request
+    // Notify seller about revision request (include message in notification)
     if let Some(accepted_bid_id) = task.accepted_bid_id {
         if let Ok(bid) = sqlx::query_as::<_, crate::models::bid::Bid>("SELECT * FROM bids WHERE id = $1")
             .bind(accepted_bid_id)
             .fetch_one(pool.inner())
             .await
         {
-            create_notification(pool.inner(), bid.seller_id, "revision_requested", &format!("Revision requested on \"{}\"", task.title), Some(task.id)).await;
+            let msg = if revision_msg.is_empty() {
+                format!("Revision requested on \"{}\"", task.title)
+            } else {
+                format!("Revision requested on \"{}\": {}", task.title, revision_msg)
+            };
+            create_notification(pool.inner(), bid.seller_id, "revision_requested", &msg, Some(task.id)).await;
         }
     }
 

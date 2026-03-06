@@ -119,4 +119,6 @@ pub struct TaskDetail {
     pub buyer: super::user::PublicUser,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub my_rating: Option<super::rating::Rating>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub escrow: Option<super::escrow::Escrow>,
 }

@@ -31,17 +31,27 @@ pub struct DashboardResponse {
     pub total_earned: Decimal,
     pub total_spent: Decimal,
     pub active_escrow: Decimal,
+    pub page: i64,
+    pub per_page: i64,
 }
 
-#[rocket::get("/api/dashboard")]
+#[rocket::get("/api/dashboard?<page>&<per_page>")]
 pub async fn dashboard(
     pool: &State<PgPool>,
     auth: AuthUser,
+    page: Option<i64>,
+    per_page: Option<i64>,
 ) -> Result<Json<DashboardResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+
     let tasks_posted = sqlx::query_as::<_, crate::models::task::Task>(
-        "SELECT * FROM tasks WHERE buyer_id = $1 ORDER BY created_at DESC LIMIT 50"
+        "SELECT * FROM tasks WHERE buyer_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"
     )
     .bind(auth.user_id)
+    .bind(per_page)
+    .bind(offset)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -51,9 +61,11 @@ pub async fn dashboard(
         r#"SELECT t.* FROM tasks t
            JOIN bids b ON t.accepted_bid_id = b.id
            WHERE b.seller_id = $1
-           ORDER BY t.updated_at DESC LIMIT 50"#,
+           ORDER BY t.updated_at DESC LIMIT $2 OFFSET $3"#,
     )
     .bind(auth.user_id)
+    .bind(per_page)
+    .bind(offset)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -61,9 +73,11 @@ pub async fn dashboard(
     let my_bids = sqlx::query_as::<_, DashboardBid>(
         r#"SELECT b.*, t.slug AS task_slug, t.title AS task_title
            FROM bids b JOIN tasks t ON b.task_id = t.id
-           WHERE b.seller_id = $1 ORDER BY b.created_at DESC LIMIT 50"#,
+           WHERE b.seller_id = $1 ORDER BY b.created_at DESC LIMIT $2 OFFSET $3"#,
     )
     .bind(auth.user_id)
+    .bind(per_page)
+    .bind(offset)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -99,5 +113,7 @@ pub async fn dashboard(
         total_earned,
         total_spent,
         active_escrow,
+        page,
+        per_page,
     }))
 }

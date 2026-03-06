@@ -43,6 +43,7 @@ export default function TaskDetailPage() {
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
 
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -67,13 +68,13 @@ export default function TaskDetailPage() {
   useEffect(() => { fetchTask(); }, [slug]);
 
   const isBuyer = user && task && user.id === task.buyer_id;
-  const isAcceptedSeller = user && task && bids.some(b => b.seller_id === user.id && b.status === 'Accepted');
+  const isAcceptedSeller = user && task && bids.some(b => b.seller_id === user.id && b.status === 'accepted');
   const canBid = user && task && user.id !== task.buyer_id && ['open', 'bidding'].includes(task.status);
   const alreadyBid = user && bids.some(b => b.seller_id === user?.id);
 
   const handleBid = async () => {
-    if (!task) return;
-    setError(''); setSuccess('');
+    if (!task || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/bids`, {
         price: parseFloat(bidPrice),
@@ -84,22 +85,22 @@ export default function TaskDetailPage() {
       setSuccess('Bid submitted!');
       setBidPrice(''); setBidDays(''); setBidPitch('');
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   const handleAcceptBid = async (bidId: string) => {
-    if (!task) return;
-    setError(''); setSuccess('');
+    if (!task || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/bids/${bidId}/accept`);
       setSuccess('Bid accepted! Escrow created.');
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   const handleDeliver = async () => {
-    if (!task) return;
-    setError(''); setSuccess('');
+    if (!task || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/deliver`, {
         message: deliveryMsg,
@@ -108,23 +109,23 @@ export default function TaskDetailPage() {
       setSuccess('Delivery submitted!');
       setDeliveryMsg(''); setDeliveryUrl('');
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   const handleApprove = async () => {
-    if (!task) return;
+    if (!task || submitting) return;
     if (!window.confirm('Are you sure you want to approve this delivery and release payment?')) return;
-    setError(''); setSuccess('');
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/approve`);
       setSuccess('Delivery approved! Payment released.');
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   const handleRevision = async () => {
-    if (!task) return;
-    setError(''); setSuccess('');
+    if (!task || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/revision`, {
         message: revisionMessage.trim() || null,
@@ -133,34 +134,34 @@ export default function TaskDetailPage() {
       setShowRevisionForm(false);
       setRevisionMessage('');
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   const handleDispute = async () => {
-    if (!task || !disputeReason.trim()) return;
-    setError(''); setSuccess('');
+    if (!task || !disputeReason.trim() || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/dispute`, { reason: disputeReason.trim() });
       setSuccess('Dispute raised.');
       setShowDisputeForm(false);
       setDisputeReason('');
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   const handleWithdrawBid = async (bidId: string) => {
-    if (!task) return;
-    setError(''); setSuccess('');
+    if (!task || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.del(`/api/tasks/${task.id}/bids/${bidId}`);
       setSuccess('Bid withdrawn.');
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   const handleRate = async () => {
-    if (!task || ratingScore === 0) return;
-    setError(''); setSuccess('');
+    if (!task || ratingScore === 0 || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/rate`, { score: ratingScore, comment: ratingComment || null });
       setSuccess('Rating submitted!');
@@ -168,7 +169,7 @@ export default function TaskDetailPage() {
       setRatingComment('');
       setHasRated(true);
       fetchTask();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
   if (loading) return (
@@ -241,7 +242,7 @@ export default function TaskDetailPage() {
                 <input type="number" placeholder="Delivery days" value={bidDays} onChange={(e) => setBidDays(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" />
               </div>
               <textarea placeholder="Your pitch (max 500 chars)" value={bidPitch} onChange={(e) => setBidPitch(e.target.value)} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
-              <button onClick={handleBid} className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Submit Bid</button>
+              <button onClick={handleBid} disabled={submitting} className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Bid'}</button>
             </div>
           )}
 
@@ -251,7 +252,7 @@ export default function TaskDetailPage() {
               <h2 className="text-white text-xl font-bold mb-4">Submit Delivery</h2>
               <textarea placeholder="Delivery message (max 1000 chars)" value={deliveryMsg} onChange={(e) => setDeliveryMsg(e.target.value)} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
               <input type="url" placeholder="URL (optional)" value={deliveryUrl} onChange={(e) => setDeliveryUrl(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none mb-4" />
-              <button onClick={handleDeliver} className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Submit Delivery</button>
+              <button onClick={handleDeliver} disabled={submitting} className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Delivery'}</button>
             </div>
           )}
 
@@ -266,7 +267,7 @@ export default function TaskDetailPage() {
                 </div>
               )}
               <div className="flex flex-col sm:flex-row gap-3">
-                <button onClick={handleApprove} className="w-full sm:w-auto h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Approve & Release Payment</button>
+                <button onClick={handleApprove} disabled={submitting} className="w-full sm:w-auto h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Processing...' : 'Approve & Release Payment'}</button>
                 <button onClick={() => setShowRevisionForm(!showRevisionForm)} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
                 <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               </div>
@@ -279,7 +280,7 @@ export default function TaskDetailPage() {
                     className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none"
                   />
                   <div className="flex gap-3">
-                    <button onClick={handleRevision} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer">Submit Revision Request</button>
+                    <button onClick={handleRevision} disabled={submitting} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Revision Request'}</button>
                     <button onClick={() => { setShowRevisionForm(false); setRevisionMessage(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
@@ -293,7 +294,7 @@ export default function TaskDetailPage() {
                     className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none"
                   />
                   <div className="flex gap-3">
-                    <button onClick={handleDispute} disabled={!disputeReason.trim()} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Submit Dispute</button>
+                    <button onClick={handleDispute} disabled={!disputeReason.trim() || submitting} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Dispute'}</button>
                     <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
@@ -314,7 +315,7 @@ export default function TaskDetailPage() {
                     className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none"
                   />
                   <div className="flex gap-3">
-                    <button onClick={handleDispute} disabled={!disputeReason.trim()} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Submit Dispute</button>
+                    <button onClick={handleDispute} disabled={!disputeReason.trim() || submitting} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Dispute'}</button>
                     <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
@@ -363,10 +364,10 @@ export default function TaskDetailPage() {
               />
               <button
                 onClick={handleRate}
-                disabled={ratingScore === 0}
+                disabled={ratingScore === 0 || submitting}
                 className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Rating
+                {submitting ? 'Submitting...' : 'Submit Rating'}
               </button>
             </div>
           )}
@@ -395,11 +396,11 @@ export default function TaskDetailPage() {
                       <span className="text-white font-bold">{parseFloat(String(bid.price)).toLocaleString()} {bid.currency}</span>
                       <span className="text-slate-400">Est. {bid.estimated_delivery_days} day{bid.estimated_delivery_days !== 1 ? 's' : ''} delivery</span>
                     </div>
-                    {isBuyer && bid.status === 'Pending' && (statusStr === 'open' || statusStr === 'bidding') && (
-                      <button onClick={() => handleAcceptBid(bid.id)} className="mt-3 h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Accept Bid</button>
+                    {isBuyer && bid.status === 'pending' && (statusStr === 'open' || statusStr === 'bidding') && (
+                      <button onClick={() => handleAcceptBid(bid.id)} disabled={submitting} className="mt-3 h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Accepting...' : 'Accept Bid'}</button>
                     )}
-                    {user && bid.seller_id === user.id && bid.status === 'Pending' && (
-                      <button onClick={() => handleWithdrawBid(bid.id)} className="mt-3 h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm font-bold hover:bg-red-600/30 cursor-pointer">Withdraw Bid</button>
+                    {user && bid.seller_id === user.id && bid.status === 'pending' && (
+                      <button onClick={() => handleWithdrawBid(bid.id)} disabled={submitting} className="mt-3 h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm font-bold hover:bg-red-600/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Withdrawing...' : 'Withdraw Bid'}</button>
                     )}
                   </div>
                 ))}
