@@ -55,6 +55,17 @@ fn default_currency() -> String {
     "USD".to_string()
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateTaskRequest {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub budget_min: Option<Decimal>,
+    pub budget_max: Option<Decimal>,
+    pub deadline: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct TaskQuery {
     pub status: Option<String>,

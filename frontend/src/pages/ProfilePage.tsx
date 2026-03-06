@@ -1,18 +1,38 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { handleApiError } from '../lib/handleApiError';
 import type { PublicUser } from '../lib/types';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState<PublicUser | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editError, setEditError] = useState('');
+
+  const isOwnProfile = authUser && id === authUser.id;
 
   useEffect(() => {
     if (id) {
       api.get<PublicUser>(`/api/users/${id}`).then(setUser).catch(handleApiError);
     }
   }, [id]);
+
+  const handleSaveProfile = async () => {
+    setEditError('');
+    try {
+      const updated = await api.put<PublicUser>('/api/auth/me', {
+        display_name: editName || undefined,
+        bio: editBio || undefined,
+      });
+      setUser(updated);
+      setEditing(false);
+    } catch (e: any) { setEditError(e.message); }
+  };
 
   if (!user) return <div className="flex-1 flex items-center justify-center text-slate-400 py-20">Loading...</div>;
 
@@ -58,6 +78,33 @@ export default function ProfilePage() {
           <p className="text-slate-400 text-sm">Member since {new Date(user.member_since).toLocaleDateString()}</p>
           {user.is_agent && user.agent_type && (
             <p className="text-slate-400 text-sm mt-2">Agent Type: <span className="text-primary font-medium">{user.agent_type}</span></p>
+          )}
+
+          {isOwnProfile && !editing && (
+            <button
+              onClick={() => { setEditName(user.display_name); setEditBio(''); setEditing(true); }}
+              className="mt-4 h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              Edit Profile
+            </button>
+          )}
+
+          {editing && (
+            <div className="mt-6 space-y-4 border-t border-border-dark pt-6">
+              {editError && <p className="text-red-400 text-sm">{editError}</p>}
+              <div>
+                <label className="text-slate-300 text-sm font-medium mb-2 block">Display Name</label>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" />
+              </div>
+              <div>
+                <label className="text-slate-300 text-sm font-medium mb-2 block">Bio</label>
+                <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} maxLength={500} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Tell us about yourself..." />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleSaveProfile} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Save</button>
+                <button onClick={() => setEditing(false)} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import type { Task } from '../lib/types';
 
 const CATEGORIES = [
@@ -14,7 +15,26 @@ const CATEGORIES = [
 ];
 
 export default function PostTaskPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  if (!user) {
+    return (
+      <main className="flex-1 flex items-center justify-center px-4 py-20">
+        <div className="text-center">
+          <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="material-symbols-outlined text-primary text-3xl">lock</span>
+          </div>
+          <h1 className="text-white text-2xl font-bold mb-2">Sign in to post a task</h1>
+          <p className="text-slate-400 mb-6">You need an account to post tasks on the marketplace.</p>
+          <div className="flex gap-3 justify-center">
+            <Link to="/login" className="h-12 px-6 flex items-center justify-center rounded-xl bg-primary text-white font-bold hover:brightness-110 transition-all cursor-pointer">Sign In</Link>
+            <Link to="/register" className="h-12 px-6 flex items-center justify-center rounded-xl bg-card-dark text-slate-300 border border-border-dark font-bold hover:bg-slate-800 transition-all cursor-pointer">Register</Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
@@ -31,6 +51,7 @@ export default function PostTaskPage() {
     if (!title.trim()) { setError('Title is required'); return; }
     if (!description.trim()) { setError('Description is required'); return; }
     if (!budgetMin || !budgetMax) { setError('Budget range is required'); return; }
+    if (parseFloat(budgetMin) < 0 || parseFloat(budgetMax) < 0) { setError('Budget cannot be negative'); return; }
     if (parseFloat(budgetMin) > parseFloat(budgetMax)) { setError('Min budget cannot exceed max budget'); return; }
     if (!deadline) { setError('Deadline is required'); return; }
     try {
@@ -94,11 +115,11 @@ export default function PostTaskPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="text-slate-300 text-sm font-medium mb-2 block">Min Budget</label>
-              <input type="number" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="50" />
+              <input type="number" min="0" step="any" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="50" />
             </div>
             <div>
               <label className="text-slate-300 text-sm font-medium mb-2 block">Max Budget</label>
-              <input type="number" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="200" />
+              <input type="number" min="0" step="any" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="200" />
             </div>
             <div>
               <label className="text-slate-300 text-sm font-medium mb-2 block">Currency</label>

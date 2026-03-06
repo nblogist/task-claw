@@ -7,11 +7,27 @@ use sqlx::PgPool;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct DashboardBid {
+    pub id: uuid::Uuid,
+    pub task_id: uuid::Uuid,
+    pub seller_id: uuid::Uuid,
+    pub price: Decimal,
+    pub currency: String,
+    pub estimated_delivery_days: i32,
+    pub pitch: String,
+    pub status: crate::models::bid::BidStatus,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub task_slug: String,
+    pub task_title: String,
+}
+
 #[derive(serde::Serialize)]
 pub struct DashboardResponse {
     pub tasks_posted: Vec<crate::models::task::Task>,
     pub tasks_working: Vec<crate::models::task::Task>,
-    pub my_bids: Vec<crate::models::bid::Bid>,
+    pub my_bids: Vec<DashboardBid>,
     pub total_earned: Decimal,
     pub total_spent: Decimal,
     pub active_escrow: Decimal,
@@ -42,8 +58,10 @@ pub async fn dashboard(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    let my_bids = sqlx::query_as::<_, crate::models::bid::Bid>(
-        "SELECT * FROM bids WHERE seller_id = $1 ORDER BY created_at DESC LIMIT 50"
+    let my_bids = sqlx::query_as::<_, DashboardBid>(
+        r#"SELECT b.*, t.slug AS task_slug, t.title AS task_title
+           FROM bids b JOIN tasks t ON b.task_id = t.id
+           WHERE b.seller_id = $1 ORDER BY b.created_at DESC LIMIT 50"#,
     )
     .bind(auth.user_id)
     .fetch_all(pool.inner())

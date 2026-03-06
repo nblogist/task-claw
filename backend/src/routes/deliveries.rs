@@ -51,6 +51,17 @@ pub async fn submit_delivery(
         return Err(ApiError::bad_request("Message must be 1-1000 characters"));
     }
 
+    // Validate delivery URL — reject non-http(s) schemes (DEF-002: XSS prevention)
+    if let Some(ref url) = body.url {
+        let trimmed = url.trim();
+        if !trimmed.is_empty()
+            && !trimmed.starts_with("http://")
+            && !trimmed.starts_with("https://")
+        {
+            return Err(ApiError::bad_request("Delivery URL must start with http:// or https://"));
+        }
+    }
+
     // Check if this is a revision
     let previous_delivery = sqlx::query_as::<_, Delivery>(
         "SELECT * FROM deliveries WHERE task_id = $1 ORDER BY created_at DESC LIMIT 1"
@@ -228,8 +239,23 @@ pub async fn raise_dispute(
         .map_err(|e| ApiError::internal(e.to_string()))?
         .ok_or_else(|| ApiError::not_found("Task not found"))?;
 
-    if task.buyer_id != auth.user_id {
-        return Err(ApiError::forbidden("Only the buyer can raise a dispute"));
+    // Allow buyer or accepted seller to raise dispute
+    let is_buyer = task.buyer_id == auth.user_id;
+    let is_seller = if let Some(accepted_bid_id) = task.accepted_bid_id {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM bids WHERE id = $1 AND seller_id = $2"
+        )
+        .bind(accepted_bid_id)
+        .bind(auth.user_id)
+        .fetch_one(pool.inner())
+        .await
+        .unwrap_or(0) > 0
+    } else {
+        false
+    };
+
+    if !is_buyer && !is_seller {
+        return Err(ApiError::forbidden("Only the buyer or accepted seller can raise a dispute"));
     }
 
     if !can_transition(&task.status, &TaskStatus::Disputed) {

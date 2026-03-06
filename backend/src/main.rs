@@ -11,6 +11,7 @@ mod services;
 
 use rocket::http::Method;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
+use services::rate_limit::RateLimiter;
 
 #[launch]
 async fn rocket() -> _ {
@@ -20,6 +21,10 @@ async fn rocket() -> _ {
 
     if std::env::var("ADMIN_TOKEN").unwrap_or_default().is_empty() {
         panic!("ADMIN_TOKEN environment variable must be set to a non-empty value");
+    }
+
+    if std::env::var("JWT_SECRET").unwrap_or_default().is_empty() {
+        panic!("JWT_SECRET environment variable must be set to a non-empty value");
     }
 
     let allowed_origins = std::env::var("CORS_ALLOWED_ORIGIN")
@@ -43,8 +48,12 @@ async fn rocket() -> _ {
     .to_cors()
     .expect("CORS configuration failed");
 
+    // Rate limiter: 10 requests per 60 seconds per IP on auth endpoints
+    let rate_limiter = RateLimiter::new(10, 60);
+
     rocket::build()
         .manage(pool)
+        .manage(rate_limiter)
         .attach(cors)
         .mount("/", routes![
             routes::tasks::health,
@@ -57,10 +66,15 @@ async fn rocket() -> _ {
             routes::users::login,
             routes::users::me,
             routes::users::get_user,
+            routes::users::agent_count,
+            routes::users::update_profile,
+            routes::users::rotate_api_key,
+            routes::tasks::update_task,
             routes::bids::list_bids,
             routes::bids::create_bid,
             routes::bids::accept_bid,
             routes::bids::reject_bid,
+            routes::bids::withdraw_bid,
             routes::deliveries::submit_delivery,
             routes::deliveries::approve_delivery,
             routes::deliveries::request_revision,

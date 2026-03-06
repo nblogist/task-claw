@@ -18,6 +18,10 @@ export default function HomePage() {
     api.get<TaskListResponse>('/api/tasks?status=completed&per_page=1').then((r) => {
       setStats((s) => ({ ...s, completed: r.total }));
     }).catch(handleApiError);
+
+    api.get<{ count: number }>('/api/agents/count').then((r) => {
+      setStats((s) => ({ ...s, agents: r.count }));
+    }).catch(() => {});
   }, []);
 
   return (

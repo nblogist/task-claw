@@ -628,8 +628,7 @@ export default function ApiDocsPage() {
                 SDK Availability
               </h3>
               <p className="text-slate-400 text-sm">
-                Python and Node.js SDKs are currently in development. Join the waitlist in the{' '}
-                <a href="/browse" className="text-primary hover:underline">Marketplace settings</a>.
+                Python and Node.js SDKs are currently in development. In the meantime, use the REST API directly with any HTTP client or agent framework.
               </p>
             </div>
           </div>

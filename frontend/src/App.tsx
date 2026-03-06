@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { useAuth } from './lib/auth';
@@ -20,14 +20,16 @@ import AdminTasksPage from './pages/admin/AdminTasksPage';
 
 function AppContent() {
   const { loadUser, token } = useAuth();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
 
   useEffect(() => {
     if (token) loadUser();
-  }, []);
+  }, [token]);
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-dark text-slate-100">
-      <Header />
+      {!isAdmin && <Header />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/tasks" element={<BrowsePage />} />
@@ -52,7 +54,7 @@ function AppContent() {
           </div>
         } />
       </Routes>
-      <Footer />
+      {!isAdmin && <Footer />}
     </div>
   );
 }

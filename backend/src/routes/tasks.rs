@@ -160,7 +160,7 @@ pub async fn get_task(
     slug: &str,
 ) -> Result<Json<TaskDetail>, (Status, Json<ApiError>)> {
     // Increment view count and fetch
-    let task = sqlx::query_as::<_, Task>(
+    let mut task = sqlx::query_as::<_, Task>(
         r#"UPDATE tasks SET view_count = view_count + 1
            WHERE slug = $1
            RETURNING *"#,
@@ -170,6 +170,17 @@ pub async fn get_task(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?
     .ok_or_else(|| ApiError::not_found("Task not found"))?;
+
+    // Lazy deadline check: auto-expire open/bidding tasks past deadline
+    if matches!(task.status, TaskStatus::Open | TaskStatus::Bidding) && task.deadline < chrono::Utc::now() {
+        task = sqlx::query_as::<_, Task>(
+            "UPDATE tasks SET status = 'expired', updated_at = now() WHERE id = $1 RETURNING *"
+        )
+        .bind(task.id)
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+    }
 
     let bid_count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM bids WHERE task_id = $1"
@@ -233,6 +244,12 @@ pub async fn create_task(
     if body.description.is_empty() || body.description.len() > 2000 {
         return Err(ApiError::bad_request("Description must be 1-2000 characters"));
     }
+    if body.budget_min < rust_decimal::Decimal::ZERO {
+        return Err(ApiError::bad_request("budget_min must be >= 0"));
+    }
+    if body.budget_max < rust_decimal::Decimal::ZERO {
+        return Err(ApiError::bad_request("budget_max must be >= 0"));
+    }
     if body.budget_min > body.budget_max {
         return Err(ApiError::bad_request("budget_min must be <= budget_max"));
     }
@@ -287,6 +304,70 @@ pub async fn create_task(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(task))
+}
+
+#[rocket::put("/api/tasks/<id>", data = "<body>")]
+pub async fn update_task(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    id: &str,
+    body: Json<crate::models::task::UpdateTaskRequest>,
+) -> Result<Json<Task>, (Status, Json<ApiError>)> {
+    let task_id = Uuid::parse_str(id)
+        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+
+    let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
+        .bind(task_id)
+        .fetch_optional(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?
+        .ok_or_else(|| ApiError::not_found("Task not found"))?;
+
+    if task.buyer_id != auth.user_id {
+        return Err(ApiError::forbidden("Only the buyer can edit this task"));
+    }
+
+    if !matches!(task.status, TaskStatus::Open | TaskStatus::Bidding) {
+        return Err(ApiError::bad_request("Can only edit tasks in open or bidding status"));
+    }
+
+    let body = body.into_inner();
+    let title = body.title.unwrap_or(task.title);
+    let description = body.description.unwrap_or(task.description);
+    let category = body.category.unwrap_or(task.category);
+    let tags = body.tags.unwrap_or(task.tags);
+    let budget_min = body.budget_min.unwrap_or(task.budget_min);
+    let budget_max = body.budget_max.unwrap_or(task.budget_max);
+    let deadline = body.deadline.unwrap_or(task.deadline);
+
+    if title.is_empty() || title.len() > 120 {
+        return Err(ApiError::bad_request("Title must be 1-120 characters"));
+    }
+    if budget_min < rust_decimal::Decimal::ZERO || budget_max < rust_decimal::Decimal::ZERO {
+        return Err(ApiError::bad_request("Budget must be >= 0"));
+    }
+    if budget_min > budget_max {
+        return Err(ApiError::bad_request("budget_min must be <= budget_max"));
+    }
+
+    let updated = sqlx::query_as::<_, Task>(
+        r#"UPDATE tasks SET title = $1, description = $2, category = $3, tags = $4,
+           budget_min = $5, budget_max = $6, deadline = $7, updated_at = now()
+           WHERE id = $8 RETURNING *"#,
+    )
+    .bind(&title)
+    .bind(&description)
+    .bind(&category)
+    .bind(&tags)
+    .bind(budget_min)
+    .bind(budget_max)
+    .bind(deadline)
+    .bind(task_id)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(updated))
 }
 
 #[rocket::delete("/api/tasks/<id>")]

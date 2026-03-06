@@ -31,6 +31,7 @@ pub struct AdminStatsResponse {
     pub completed_tasks: i64,
     pub total_escrow_value: Decimal,
     pub dispute_count: i64,
+    pub total_users: i64,
 }
 
 #[derive(Debug, Serialize, FromRow)]

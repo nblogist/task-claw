@@ -5,8 +5,10 @@ pub fn can_transition(from: &TaskStatus, to: &TaskStatus) -> bool {
         (from, to),
         (TaskStatus::Open, TaskStatus::Bidding)
             | (TaskStatus::Open, TaskStatus::Cancelled)
+            | (TaskStatus::Open, TaskStatus::Expired)
             | (TaskStatus::Bidding, TaskStatus::InEscrow)
             | (TaskStatus::Bidding, TaskStatus::Cancelled)
+            | (TaskStatus::Bidding, TaskStatus::Expired)
             | (TaskStatus::InEscrow, TaskStatus::Delivered)
             | (TaskStatus::InEscrow, TaskStatus::Expired)
             | (TaskStatus::Delivered, TaskStatus::Completed)

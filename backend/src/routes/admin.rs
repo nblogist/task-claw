@@ -51,12 +51,18 @@ pub async fn admin_stats(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
+    let total_users = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
     Ok(Json(AdminStatsResponse {
         total_tasks,
         open_tasks,
         completed_tasks,
         total_escrow_value,
         dispute_count,
+        total_users,
     }))
 }
 

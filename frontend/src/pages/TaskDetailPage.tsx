@@ -32,6 +32,7 @@ export default function TaskDetailPage() {
   // Rating form
   const [ratingScore, setRatingScore] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
+  const [hasRated, setHasRated] = useState(false);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -130,6 +131,16 @@ export default function TaskDetailPage() {
     } catch (e: any) { setError(e.message); }
   };
 
+  const handleWithdrawBid = async (bidId: string) => {
+    if (!task) return;
+    setError(''); setSuccess('');
+    try {
+      await api.del(`/api/tasks/${task.id}/bids/${bidId}`);
+      setSuccess('Bid withdrawn.');
+      fetchTask();
+    } catch (e: any) { setError(e.message); }
+  };
+
   const handleRate = async () => {
     if (!task || ratingScore === 0) return;
     setError(''); setSuccess('');
@@ -138,6 +149,7 @@ export default function TaskDetailPage() {
       setSuccess('Rating submitted!');
       setRatingScore(0);
       setRatingComment('');
+      setHasRated(true);
       fetchTask();
     } catch (e: any) { setError(e.message); }
   };
@@ -193,7 +205,7 @@ export default function TaskDetailPage() {
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
               <h2 className="text-white text-xl font-bold mb-4">Submit a Bid</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <input type="number" placeholder={`Price (${task.budget_min} - ${task.budget_max})`} value={bidPrice} onChange={(e) => setBidPrice(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" />
+                <input type="number" placeholder={`Price (${parseFloat(String(task.budget_min)).toLocaleString()} - ${parseFloat(String(task.budget_max)).toLocaleString()})`} value={bidPrice} onChange={(e) => setBidPrice(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" />
                 <input type="number" placeholder="Delivery days" value={bidDays} onChange={(e) => setBidDays(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" />
               </div>
               <textarea placeholder="Your pitch (max 500 chars)" value={bidPitch} onChange={(e) => setBidPitch(e.target.value)} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
@@ -229,6 +241,13 @@ export default function TaskDetailPage() {
             </div>
           )}
 
+          {/* Seller Dispute Option */}
+          {isAcceptedSeller && (statusStr === 'delivered' || statusStr === 'in_escrow' || statusStr === 'inescrow') && (
+            <div className="mb-6">
+              <button onClick={handleDispute} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-sm font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
+            </div>
+          )}
+
           {/* Deliveries List */}
           {deliveries.length > 0 && (
             <div className="mb-8">
@@ -247,7 +266,7 @@ export default function TaskDetailPage() {
           )}
 
           {/* Rating Form */}
-          {user && task && statusStr === 'completed' && (isBuyer || isAcceptedSeller) && (
+          {user && task && statusStr === 'completed' && (isBuyer || isAcceptedSeller) && !hasRated && (
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
               <h2 className="text-white text-xl font-bold mb-4">Rate this experience</h2>
               <div className="flex gap-1 mb-4">
@@ -300,10 +319,13 @@ export default function TaskDetailPage() {
                     <p className="text-slate-300 text-sm mb-3">{bid.pitch}</p>
                     <div className="flex gap-6 text-sm">
                       <span className="text-white font-bold">{parseFloat(String(bid.price)).toLocaleString()} {bid.currency}</span>
-                      <span className="text-slate-400">{bid.estimated_delivery_days} days</span>
+                      <span className="text-slate-400">Est. {bid.estimated_delivery_days} day{bid.estimated_delivery_days !== 1 ? 's' : ''} delivery</span>
                     </div>
                     {isBuyer && bid.status === 'Pending' && (statusStr === 'open' || statusStr === 'bidding') && (
                       <button onClick={() => handleAcceptBid(bid.id)} className="mt-3 h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Accept Bid</button>
+                    )}
+                    {user && bid.seller_id === user.id && bid.status === 'Pending' && (
+                      <button onClick={() => handleWithdrawBid(bid.id)} className="mt-3 h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm font-bold hover:bg-red-600/30 cursor-pointer">Withdraw Bid</button>
                     )}
                   </div>
                 ))}

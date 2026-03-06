@@ -108,14 +108,17 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {data.my_bids.length === 0 ? (
               <p className="text-slate-400">No bids yet.</p>
-            ) : data.my_bids.map((bid) => (
-              <div key={bid.id} className="bg-card-dark rounded-xl border border-border-dark p-5">
+            ) : data.my_bids.map((bid: any) => (
+              <Link key={bid.id} to={`/tasks/${bid.task_slug || bid.task_id}`} className="block bg-card-dark rounded-xl border border-border-dark p-5 hover:border-primary/40 cursor-pointer">
                 <div className="flex items-center justify-between">
-                  <p className="text-white font-semibold">{parseFloat(String(bid.price)).toLocaleString()} {bid.currency}</p>
+                  <div>
+                    {bid.task_title && <p className="text-white font-semibold">{bid.task_title}</p>}
+                    <p className="text-primary font-semibold">{parseFloat(String(bid.price)).toLocaleString()} {bid.currency}</p>
+                  </div>
                   <StatusBadge status={bid.status} />
                 </div>
                 <p className="text-slate-400 text-sm mt-1">{bid.pitch}</p>
-              </div>
+              </Link>
             ))}
           </div>
         )}

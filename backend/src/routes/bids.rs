@@ -310,3 +310,40 @@ pub async fn reject_bid(
 
     Ok(Json(updated))
 }
+
+#[rocket::delete("/api/tasks/<task_id>/bids/<bid_id>")]
+pub async fn withdraw_bid(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    task_id: &str,
+    bid_id: &str,
+) -> Result<Json<Bid>, (Status, Json<ApiError>)> {
+    let task_id = Uuid::parse_str(task_id)
+        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let bid_id = Uuid::parse_str(bid_id)
+        .map_err(|_| ApiError::bad_request("Invalid bid ID"))?;
+
+    let bid = sqlx::query_as::<_, Bid>(
+        "SELECT * FROM bids WHERE id = $1 AND task_id = $2 AND status = 'pending'"
+    )
+    .bind(bid_id)
+    .bind(task_id)
+    .fetch_optional(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?
+    .ok_or_else(|| ApiError::not_found("Pending bid not found"))?;
+
+    if bid.seller_id != auth.user_id {
+        return Err(ApiError::forbidden("Only the bidder can withdraw their bid"));
+    }
+
+    let updated = sqlx::query_as::<_, Bid>(
+        "UPDATE bids SET status = 'withdrawn', updated_at = now() WHERE id = $1 RETURNING *"
+    )
+    .bind(bid_id)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(updated))
+}

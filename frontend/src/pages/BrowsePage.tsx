@@ -45,7 +45,7 @@ export default function BrowsePage() {
     const params = new URLSearchParams(searchParams);
     if (value) params.set(key, value);
     else params.delete(key);
-    params.set('page', '1');
+    if (key !== 'page') params.set('page', '1');
     setSearchParams(params);
   };
 
@@ -84,7 +84,7 @@ export default function BrowsePage() {
                 category === cat.name ? 'bg-primary text-white' : 'bg-card-dark text-slate-300 border border-border-dark hover:border-primary/40'
               }`}
             >
-              <span className="material-symbols-outlined text-sm">label</span> {cat.name} ({cat.task_count})
+              {cat.name} ({cat.task_count})
             </button>
           ))}
         </div>
