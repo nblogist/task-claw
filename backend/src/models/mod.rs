@@ -6,3 +6,4 @@ pub mod escrow;
 pub mod rating;
 pub mod dispute;
 pub mod notification;
+pub mod webhook;

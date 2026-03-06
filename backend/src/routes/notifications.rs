@@ -74,7 +74,8 @@ pub async fn mark_read(
     Ok(Json(json!({"message": "Notification marked as read"})))
 }
 
-/// Helper to create a notification (called from other routes)
+/// Helper to create a notification (called from other routes).
+/// Also fires any matching webhooks for the user asynchronously.
 pub async fn create_notification(
     pool: &PgPool,
     user_id: Uuid,
@@ -91,4 +92,13 @@ pub async fn create_notification(
     .bind(task_id)
     .execute(pool)
     .await;
+
+    // Fire webhooks asynchronously
+    let payload = json!({
+        "kind": kind,
+        "message": message,
+        "task_id": task_id,
+        "user_id": user_id,
+    });
+    crate::routes::webhooks::fire_webhooks(pool.clone(), user_id, kind.to_string(), payload);
 }

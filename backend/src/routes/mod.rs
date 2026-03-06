@@ -6,3 +6,4 @@ pub mod ratings;
 pub mod admin;
 pub mod escrow;
 pub mod notifications;
+pub mod webhooks;

@@ -16,6 +16,7 @@ export interface Task {
   deadline: string;
   status: TaskStatus;
   accepted_bid_id: string | null;
+  specifications: Record<string, unknown> | null;
   view_count: number;
   bid_count?: number;
   buyer?: PublicUser;

@@ -22,4 +22,5 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 rand = "0.8"
 subtle = "2"
 sha2 = "0.10"
+hmac = "0.12"
 hex = "0.4"

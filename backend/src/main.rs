@@ -84,6 +84,7 @@ async fn rocket() -> _ {
             routes::ratings::submit_rating,
             routes::escrow::dashboard,
             routes::admin::admin_stats,
+            routes::admin::admin_list_tasks,
             routes::admin::list_disputes,
             routes::admin::resolve_dispute,
             routes::admin::remove_task,
@@ -96,5 +97,9 @@ async fn rocket() -> _ {
             routes::notifications::unread_count,
             routes::notifications::mark_all_read,
             routes::notifications::mark_read,
+            routes::webhooks::list_webhooks,
+            routes::webhooks::create_webhook,
+            routes::webhooks::update_webhook,
+            routes::webhooks::delete_webhook,
         ])
 }

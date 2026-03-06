@@ -9,7 +9,8 @@ use rust_decimal::Decimal;
 use crate::errors::ApiError;
 use crate::guards::admin::AdminToken;
 use crate::models::dispute::{AdminStatsResponse, DisputeDetail, ResolveDisputeRequest};
-use crate::models::task::TaskStatus;
+use crate::models::task::{TaskStatus, TaskListResponse, TaskSummary};
+use crate::models::user::PublicUser;
 use crate::services::task_lifecycle::can_transition;
 
 #[derive(Debug, sqlx::FromRow)]
@@ -47,6 +48,118 @@ pub async fn admin_stats(
         total_escrow_value: row.total_escrow_value.unwrap_or(Decimal::ZERO),
         dispute_count: row.dispute_count,
         total_users: row.total_users,
+    }))
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct AdminTaskRow {
+    id: Uuid,
+    slug: String,
+    title: String,
+    category: String,
+    tags: Vec<String>,
+    budget_min: Decimal,
+    budget_max: Decimal,
+    currency: String,
+    deadline: chrono::DateTime<chrono::Utc>,
+    status: TaskStatus,
+    view_count: i32,
+    created_at: chrono::DateTime<chrono::Utc>,
+    bid_count: i64,
+    buyer_uuid: Option<Uuid>,
+    buyer_display_name: Option<String>,
+    buyer_is_agent: Option<bool>,
+    buyer_agent_type: Option<String>,
+    buyer_avg_rating: Option<Decimal>,
+    buyer_total_ratings: Option<i32>,
+    buyer_tasks_posted: Option<i32>,
+    buyer_tasks_completed: Option<i32>,
+    buyer_created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[get("/api/admin/tasks?<status>&<page>&<per_page>")]
+pub async fn admin_list_tasks(
+    _admin: AdminToken,
+    pool: &State<PgPool>,
+    status: Option<String>,
+    page: Option<i64>,
+    per_page: Option<i64>,
+) -> Result<Json<TaskListResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(50).clamp(1, 200);
+    let offset = (page - 1) * per_page;
+    let status_filter = status.as_deref().unwrap_or("");
+
+    let total = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM tasks WHERE ($1 = '' OR status::text = $1)"
+    )
+    .bind(status_filter)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let total_pages = (total as f64 / per_page as f64).ceil() as i64;
+
+    let rows = sqlx::query_as::<_, AdminTaskRow>(
+        r#"SELECT t.id, t.slug, t.title, t.category, t.tags,
+                t.budget_min, t.budget_max, t.currency, t.deadline,
+                t.status, t.view_count, t.created_at,
+                (SELECT COUNT(*) FROM bids WHERE task_id = t.id) AS bid_count,
+                u.id AS buyer_uuid, u.display_name AS buyer_display_name,
+                u.is_agent AS buyer_is_agent, u.agent_type AS buyer_agent_type,
+                u.avg_rating AS buyer_avg_rating, u.total_ratings AS buyer_total_ratings,
+                u.tasks_posted AS buyer_tasks_posted, u.tasks_completed AS buyer_tasks_completed,
+                u.created_at AS buyer_created_at
+            FROM tasks t
+            LEFT JOIN users u ON u.id = t.buyer_id
+            WHERE ($1 = '' OR t.status::text = $1)
+            ORDER BY t.created_at DESC
+            LIMIT $2 OFFSET $3"#,
+    )
+    .bind(status_filter)
+    .bind(per_page)
+    .bind(offset)
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let tasks: Vec<TaskSummary> = rows.into_iter().map(|row| {
+        let buyer = row.buyer_uuid.map(|id| PublicUser {
+            id,
+            display_name: row.buyer_display_name.unwrap_or_default(),
+            bio: None,
+            is_agent: row.buyer_is_agent.unwrap_or(false),
+            agent_type: row.buyer_agent_type,
+            avg_rating: row.buyer_avg_rating,
+            total_ratings: row.buyer_total_ratings.unwrap_or(0),
+            tasks_posted: row.buyer_tasks_posted.unwrap_or(0),
+            tasks_completed: row.buyer_tasks_completed.unwrap_or(0),
+            member_since: row.buyer_created_at.unwrap_or_default(),
+        });
+        TaskSummary {
+            id: row.id,
+            slug: row.slug,
+            title: row.title,
+            category: row.category,
+            tags: row.tags,
+            budget_min: row.budget_min,
+            budget_max: row.budget_max,
+            currency: row.currency,
+            deadline: row.deadline,
+            status: row.status,
+            view_count: row.view_count,
+            bid_count: Some(row.bid_count),
+            buyer,
+            created_at: row.created_at,
+        }
+    }).collect();
+
+    Ok(Json(TaskListResponse {
+        tasks,
+        total,
+        page,
+        per_page,
+        total_pages,
     }))
 }
 

@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -33,6 +34,7 @@ pub struct Task {
     pub deadline: DateTime<Utc>,
     pub status: TaskStatus,
     pub accepted_bid_id: Option<Uuid>,
+    pub specifications: Option<JsonValue>,
     pub view_count: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -50,6 +52,7 @@ pub struct CreateTaskRequest {
     #[serde(default = "default_currency")]
     pub currency: String,
     pub deadline: DateTime<Utc>,
+    pub specifications: Option<JsonValue>,
 }
 
 fn default_currency() -> String {
@@ -65,6 +68,7 @@ pub struct UpdateTaskRequest {
     pub budget_min: Option<Decimal>,
     pub budget_max: Option<Decimal>,
     pub deadline: Option<DateTime<Utc>>,
+    pub specifications: Option<JsonValue>,
 }
 
 #[derive(Debug, Deserialize, Default)]

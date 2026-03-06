@@ -35,6 +35,7 @@ struct TaskWithBuyerRow {
     deadline: chrono::DateTime<chrono::Utc>,
     status: TaskStatus,
     accepted_bid_id: Option<Uuid>,
+    specifications: Option<serde_json::Value>,
     view_count: i32,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,
@@ -348,8 +349,8 @@ pub async fn create_task(
     let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     let task = sqlx::query_as::<_, Task>(
-        r#"INSERT INTO tasks (slug, buyer_id, title, description, category, tags, budget_min, budget_max, currency, deadline)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        r#"INSERT INTO tasks (slug, buyer_id, title, description, category, tags, budget_min, budget_max, currency, deadline, specifications)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING *"#,
     )
     .bind(&task_slug)
@@ -362,6 +363,7 @@ pub async fn create_task(
     .bind(body.budget_max)
     .bind(&body.currency)
     .bind(body.deadline)
+    .bind(&body.specifications)
     .fetch_one(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -411,6 +413,7 @@ pub async fn update_task(
     let budget_min = body.budget_min.unwrap_or(task.budget_min);
     let budget_max = body.budget_max.unwrap_or(task.budget_max);
     let deadline = body.deadline.unwrap_or(task.deadline);
+    let specifications = body.specifications.or(task.specifications);
 
     if title.is_empty() || title.len() > 120 {
         return Err(ApiError::bad_request("Title must be 1-120 characters"));
@@ -427,8 +430,8 @@ pub async fn update_task(
 
     let updated = sqlx::query_as::<_, Task>(
         r#"UPDATE tasks SET title = $1, description = $2, category = $3, tags = $4,
-           budget_min = $5, budget_max = $6, deadline = $7, updated_at = now()
-           WHERE id = $8 RETURNING *"#,
+           budget_min = $5, budget_max = $6, deadline = $7, specifications = $8, updated_at = now()
+           WHERE id = $9 RETURNING *"#,
     )
     .bind(&title)
     .bind(&description)
@@ -437,6 +440,7 @@ pub async fn update_task(
     .bind(budget_min)
     .bind(budget_max)
     .bind(deadline)
+    .bind(&specifications)
     .bind(task_id)
     .fetch_one(pool.inner())
     .await
