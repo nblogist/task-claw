@@ -15,7 +15,7 @@ export default function Header() {
           <h2 className="text-slate-100 text-xl font-bold tracking-tight">{APP_NAME}</h2>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden min-[840px]:flex items-center gap-8">
           <Link to="/tasks" className="text-slate-300 hover:text-primary text-sm font-medium transition-colors cursor-pointer">Marketplace</Link>
           <Link to="/api-docs" className="text-slate-300 hover:text-primary text-sm font-medium transition-colors cursor-pointer">API Docs</Link>
         </nav>
@@ -23,18 +23,18 @@ export default function Header() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              <Link to="/dashboard" className="hidden md:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
+              <Link to="/dashboard" className="hidden min-[840px]:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
                 Dashboard
               </Link>
               <button
                 onClick={logout}
-                className="hidden md:flex h-10 px-4 items-center justify-center rounded-lg text-slate-400 text-sm font-medium hover:text-white transition-colors cursor-pointer"
+                className="hidden min-[840px]:flex h-10 px-4 items-center justify-center rounded-lg text-slate-400 text-sm font-medium hover:text-white transition-colors cursor-pointer"
               >
                 Sign Out
               </button>
             </>
           ) : (
-            <Link to="/login" className="hidden md:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
+            <Link to="/login" className="hidden min-[840px]:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
               Sign In
             </Link>
           )}
