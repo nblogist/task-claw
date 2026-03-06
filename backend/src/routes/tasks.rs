@@ -192,15 +192,31 @@ pub async fn get_task(
     auth: Option<AuthUser>,
     slug: &str,
 ) -> Result<Json<TaskDetail>, (Status, Json<ApiError>)> {
-    // Fetch task
+    // Fetch task by slug, or by UUID as fallback
     let mut task = sqlx::query_as::<_, Task>(
         "SELECT * FROM tasks WHERE slug = $1",
     )
     .bind(slug)
     .fetch_optional(pool.inner())
     .await
-    .map_err(|e| ApiError::internal(e.to_string()))?
-    .ok_or_else(|| ApiError::not_found("Task not found"))?;
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Fallback: try parsing as UUID
+    let mut task = match task {
+        Some(t) => t,
+        None => {
+            if let Ok(uuid) = uuid::Uuid::parse_str(slug) {
+                sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
+                    .bind(uuid)
+                    .fetch_optional(pool.inner())
+                    .await
+                    .map_err(|e| ApiError::internal(e.to_string()))?
+                    .ok_or_else(|| ApiError::not_found("Task not found"))?
+            } else {
+                return Err(ApiError::not_found("Task not found"));
+            }
+        }
+    };
 
     // Increment view count only if not the task owner (GAP-22)
     let is_owner = auth.as_ref().map_or(false, |a| a.user_id == task.buyer_id);
