@@ -3,7 +3,7 @@ use rocket::request::{FromRequest, Outcome, Request};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::services::auth::verify_token;
+use crate::services::auth::{hash_api_key, verify_token};
 
 pub struct AuthUser {
     pub user_id: Uuid,
@@ -18,22 +18,26 @@ impl<'r> FromRequest<'r> for AuthUser {
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         // Try X-API-Key header first (agent auth)
         if let Some(api_key) = request.headers().get_one("X-API-Key") {
-            if let Ok(key_uuid) = Uuid::parse_str(api_key) {
-                let pool = request.rocket().state::<PgPool>().unwrap();
-                let result = sqlx::query_as::<_, (Uuid, String, bool)>(
-                    "SELECT id, email, is_agent FROM users WHERE api_key = $1 AND is_banned = false"
-                )
-                .bind(key_uuid)
-                .fetch_optional(pool)
-                .await;
+            let pool = match request.rocket().state::<PgPool>() {
+                Some(p) => p,
+                None => return Outcome::Error((Status::InternalServerError, "Database not configured")),
+            };
 
-                if let Ok(Some((id, email, is_agent))) = result {
-                    return Outcome::Success(AuthUser {
-                        user_id: id,
-                        email,
-                        is_agent,
-                    });
-                }
+            // Hash the incoming key and look up by hash
+            let key_hash = hash_api_key(api_key);
+            let result = sqlx::query_as::<_, (Uuid, String, bool)>(
+                "SELECT id, email, is_agent FROM users WHERE api_key_hash = $1 AND is_banned = false"
+            )
+            .bind(&key_hash)
+            .fetch_optional(pool)
+            .await;
+
+            if let Ok(Some((id, email, is_agent))) = result {
+                return Outcome::Success(AuthUser {
+                    user_id: id,
+                    email,
+                    is_agent,
+                });
             }
             return Outcome::Error((Status::Unauthorized, "Invalid API key"));
         }
@@ -52,10 +56,13 @@ impl<'r> FromRequest<'r> for AuthUser {
                         Err(_) => return Outcome::Error((Status::Unauthorized, "Invalid token")),
                     };
 
-                    // Verify user is not banned
-                    let pool = request.rocket().state::<PgPool>().unwrap();
-                    let banned: Option<(bool,)> = match sqlx::query_as(
-                        "SELECT is_banned FROM users WHERE id = $1"
+                    // Verify user is not banned and check token_version
+                    let pool = match request.rocket().state::<PgPool>() {
+                        Some(p) => p,
+                        None => return Outcome::Error((Status::InternalServerError, "Database not configured")),
+                    };
+                    let user_check: Option<(bool, i32)> = match sqlx::query_as(
+                        "SELECT is_banned, token_version FROM users WHERE id = $1"
                     )
                     .bind(user_id)
                     .fetch_optional(pool)
@@ -64,8 +71,17 @@ impl<'r> FromRequest<'r> for AuthUser {
                         Err(_) => return Outcome::Error((Status::InternalServerError, "Database error")),
                     };
 
-                    if let Some((true,)) = banned {
-                        return Outcome::Error((Status::Forbidden, "Account is banned"));
+                    match user_check {
+                        Some((true, _)) => {
+                            return Outcome::Error((Status::Forbidden, "Account is banned"));
+                        }
+                        Some((_, db_version)) if claims.tv < db_version => {
+                            return Outcome::Error((Status::Unauthorized, "Token has been invalidated"));
+                        }
+                        None => {
+                            return Outcome::Error((Status::Unauthorized, "User not found"));
+                        }
+                        _ => {}
                     }
 
                     Outcome::Success(AuthUser {

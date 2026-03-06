@@ -11,6 +11,7 @@ use crate::models::task::*;
 use crate::models::user::{PublicUser, User};
 use crate::services::rate_limit::RateLimiter;
 use crate::services::task_lifecycle::can_transition;
+use crate::routes::notifications::create_notification;
 
 #[derive(serde::Serialize)]
 pub struct CategoryItem {
@@ -334,6 +335,9 @@ pub async fn create_task(
     if body.deadline <= chrono::Utc::now() {
         return Err(ApiError::bad_request("Deadline must be in the future"));
     }
+    if !CATEGORIES.contains(&body.category.as_str()) {
+        return Err(ApiError::bad_request(format!("Invalid category. Must be one of: {}", CATEGORIES.join(", "))));
+    }
 
     // Generate race-condition-safe slug with UUID suffix
     let base_slug = slug::slugify(&body.title);
@@ -417,6 +421,9 @@ pub async fn update_task(
     if budget_min > budget_max {
         return Err(ApiError::bad_request("budget_min must be <= budget_max"));
     }
+    if !CATEGORIES.contains(&category.as_str()) {
+        return Err(ApiError::bad_request(format!("Invalid category. Must be one of: {}", CATEGORIES.join(", "))));
+    }
 
     let updated = sqlx::query_as::<_, Task>(
         r#"UPDATE tasks SET title = $1, description = $2, category = $3, tags = $4,
@@ -474,6 +481,19 @@ pub async fn cancel_task(
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Notify all pending bidders about cancellation
+    if let Ok(bidder_ids) = sqlx::query_scalar::<_, Uuid>(
+        "SELECT seller_id FROM bids WHERE task_id = $1 AND status = 'pending'"
+    )
+    .bind(task_id)
+    .fetch_all(pool.inner())
+    .await
+    {
+        for bidder_id in bidder_ids {
+            create_notification(pool.inner(), bidder_id, "task_cancelled", &format!("Task \"{}\" was cancelled", task.title), Some(task.id)).await;
+        }
+    }
 
     Ok(Json(updated))
 }

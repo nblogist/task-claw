@@ -67,8 +67,8 @@ export default function TaskDetailPage() {
   useEffect(() => { fetchTask(); }, [slug]);
 
   const isBuyer = user && task && user.id === task.buyer_id;
-  const isAcceptedSeller = user && task && bids.some(b => b.seller_id === user.id && (b.status as string).toLowerCase() === 'accepted');
-  const canBid = user && task && user.id !== task.buyer_id && ['open', 'bidding'].includes((task.status as string).toLowerCase());
+  const isAcceptedSeller = user && task && bids.some(b => b.seller_id === user.id && b.status === 'Accepted');
+  const canBid = user && task && user.id !== task.buyer_id && ['open', 'bidding'].includes(task.status);
   const alreadyBid = user && bids.some(b => b.seller_id === user?.id);
 
   const handleBid = async () => {
@@ -189,7 +189,7 @@ export default function TaskDetailPage() {
   );
   if (!task) return <div className="flex-1 flex items-center justify-center text-slate-400 py-20">Task not found.</div>;
 
-  const statusStr = typeof task.status === 'string' ? task.status.toLowerCase().replace(' ', '_') : task.status;
+  const statusStr = task.status;
 
   return (
     <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
@@ -218,7 +218,7 @@ export default function TaskDetailPage() {
           </div>
 
           {/* Escrow Label */}
-          {(statusStr === 'in_escrow' || statusStr === 'inescrow') && (
+          {(statusStr === 'in_escrow') && (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-6 flex items-center gap-3">
               <span className="material-symbols-outlined text-yellow-500">lock</span>
               <div>
@@ -246,7 +246,7 @@ export default function TaskDetailPage() {
           )}
 
           {/* Delivery Form (for accepted seller) */}
-          {isAcceptedSeller && (statusStr === 'in_escrow' || statusStr === 'inescrow') && (
+          {isAcceptedSeller && (statusStr === 'in_escrow') && (
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Submit Delivery</h2>
               <textarea placeholder="Delivery message (max 1000 chars)" value={deliveryMsg} onChange={(e) => setDeliveryMsg(e.target.value)} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
@@ -302,7 +302,7 @@ export default function TaskDetailPage() {
           )}
 
           {/* Seller Dispute Option */}
-          {isAcceptedSeller && (statusStr === 'delivered' || statusStr === 'in_escrow' || statusStr === 'inescrow') && (
+          {isAcceptedSeller && (statusStr === 'delivered' || statusStr === 'in_escrow') && (
             <div className="mb-6">
               <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-sm font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               <Expand open={showDisputeForm}>

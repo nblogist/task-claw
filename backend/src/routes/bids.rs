@@ -125,6 +125,9 @@ pub async fn create_bid(
     if body.pitch.is_empty() || body.pitch.len() > 500 {
         return Err(ApiError::bad_request("Pitch must be 1-500 characters"));
     }
+    if body.estimated_delivery_days < 1 || body.estimated_delivery_days > 365 {
+        return Err(ApiError::bad_request("Estimated delivery days must be between 1 and 365"));
+    }
 
     let task = sqlx::query_as::<_, Task>(
         "SELECT * FROM tasks WHERE id = $1"
@@ -370,6 +373,9 @@ pub async fn reject_bid(
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Notify seller their bid was rejected
+    create_notification(pool.inner(), bid.seller_id, "bid_rejected", &format!("Your bid on \"{}\" was rejected", task.title), Some(task.id)).await;
 
     Ok(Json(updated))
 }

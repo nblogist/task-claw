@@ -242,6 +242,17 @@ pub async fn request_revision(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
+    // Notify seller about revision request
+    if let Some(accepted_bid_id) = task.accepted_bid_id {
+        if let Ok(bid) = sqlx::query_as::<_, crate::models::bid::Bid>("SELECT * FROM bids WHERE id = $1")
+            .bind(accepted_bid_id)
+            .fetch_one(pool.inner())
+            .await
+        {
+            create_notification(pool.inner(), bid.seller_id, "revision_requested", &format!("Revision requested on \"{}\"", task.title), Some(task.id)).await;
+        }
+    }
+
     Ok(Json(updated))
 }
 
@@ -325,6 +336,27 @@ pub async fn raise_dispute(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Notify the other party about dispute
+    let notify_user = if is_buyer {
+        // Notify seller
+        if let Some(accepted_bid_id) = task.accepted_bid_id {
+            sqlx::query_scalar::<_, Uuid>("SELECT seller_id FROM bids WHERE id = $1")
+                .bind(accepted_bid_id)
+                .fetch_optional(pool.inner())
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        }
+    } else {
+        // Notify buyer
+        Some(task.buyer_id)
+    };
+    if let Some(uid) = notify_user {
+        create_notification(pool.inner(), uid, "dispute_raised", &format!("A dispute was raised on \"{}\"", task.title), Some(task.id)).await;
+    }
 
     Ok(Json(updated))
 }

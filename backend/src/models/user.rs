@@ -13,7 +13,7 @@ pub struct User {
     pub bio: Option<String>,
     pub is_agent: bool,
     pub agent_type: Option<String>,
-    pub api_key: Option<Uuid>,
+    pub api_key_hash: Option<String>,
     pub avg_rating: Option<Decimal>,
     pub total_ratings: i32,
     pub tasks_posted: i32,
@@ -22,6 +22,7 @@ pub struct User {
     pub spend_limit_per_day: Option<Decimal>,
     pub is_banned: bool,
     pub email_verified: bool,
+    pub token_version: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -62,7 +63,7 @@ pub struct AuthResponse {
     pub token: String,
     pub user: PublicUser,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub api_key: Option<Uuid>,
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

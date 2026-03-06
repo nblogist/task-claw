@@ -8,6 +8,7 @@ use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::rating::*;
 use crate::models::task::{Task, TaskStatus};
+use crate::routes::notifications::create_notification;
 
 #[rocket::post("/api/tasks/<id>/rate", data = "<body>")]
 pub async fn submit_rating(
@@ -99,6 +100,9 @@ pub async fn submit_rating(
     .execute(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Notify ratee about the rating
+    create_notification(pool.inner(), ratee_id, "rating_received", &format!("You received a {}-star rating on \"{}\"", body.score, task.title), Some(task.id)).await;
 
     Ok(Json(rating))
 }

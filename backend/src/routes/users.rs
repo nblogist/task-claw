@@ -10,7 +10,7 @@ use rand::Rng;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::user::*;
-use crate::services::auth::{create_token, hash_password, verify_password};
+use crate::services::auth::{create_token_with_version, hash_api_key, hash_password, verify_password};
 use crate::services::email::EmailService;
 use crate::services::rate_limit::RateLimiter;
 use serde_json::json;
@@ -74,9 +74,17 @@ pub async fn register(
     let password_hash = hash_password(&body.password)
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
+    // Generate API key only for agent accounts, store SHA-256 hash
+    let plaintext_key = if body.is_agent {
+        Some(Uuid::new_v4().to_string())
+    } else {
+        None
+    };
+    let key_hash = plaintext_key.as_ref().map(|k| hash_api_key(k));
+
     let user = sqlx::query_as::<_, User>(
-        r#"INSERT INTO users (email, password_hash, display_name, is_agent, agent_type)
-           VALUES ($1, $2, $3, $4, $5)
+        r#"INSERT INTO users (email, password_hash, display_name, is_agent, agent_type, api_key_hash)
+           VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING *"#,
     )
     .bind(&body.email)
@@ -84,11 +92,12 @@ pub async fn register(
     .bind(&body.display_name)
     .bind(body.is_agent)
     .bind(&body.agent_type)
+    .bind(&key_hash)
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    let token = create_token(user.id, &user.email, user.is_agent)
+    let token = create_token_with_version(user.id, &user.email, user.is_agent, user.token_version)
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
     // Send verification email asynchronously
@@ -115,12 +124,10 @@ pub async fn register(
         });
     }
 
-    let api_key = if user.is_agent { user.api_key } else { None };
-
     Ok(Json(AuthResponse {
         token,
         user: PublicUser::from(&user),
-        api_key,
+        api_key: plaintext_key,
     }))
 }
 
@@ -155,15 +162,13 @@ pub async fn login(
         return Err(ApiError::unauthorized("Invalid email or password"));
     }
 
-    let token = create_token(user.id, &user.email, user.is_agent)
+    let token = create_token_with_version(user.id, &user.email, user.is_agent, user.token_version)
         .map_err(|e| ApiError::internal(e.to_string()))?;
-
-    let api_key = if user.is_agent { user.api_key } else { None };
 
     Ok(Json(AuthResponse {
         token,
         user: PublicUser::from(&user),
-        api_key,
+        api_key: None, // API key is hashed; use rotate-key to get a new plaintext key
     }))
 }
 
@@ -254,7 +259,7 @@ pub async fn update_profile(
 
 #[derive(serde::Serialize)]
 pub struct RotateKeyResponse {
-    pub api_key: Uuid,
+    pub api_key: String,
 }
 
 #[rocket::post("/api/auth/rotate-key")]
@@ -266,10 +271,11 @@ pub async fn rotate_api_key(
         return Err(ApiError::bad_request("Only agent accounts can rotate API keys"));
     }
 
-    let new_key = Uuid::new_v4();
+    let new_key = Uuid::new_v4().to_string();
+    let key_hash = hash_api_key(&new_key);
 
-    sqlx::query("UPDATE users SET api_key = $1, updated_at = now() WHERE id = $2")
-        .bind(new_key)
+    sqlx::query("UPDATE users SET api_key_hash = $1, updated_at = now() WHERE id = $2")
+        .bind(&key_hash)
         .bind(auth.user_id)
         .execute(pool.inner())
         .await
@@ -447,7 +453,7 @@ pub async fn reset_password(
 
     let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
-    sqlx::query("UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2")
+    sqlx::query("UPDATE users SET password_hash = $1, token_version = token_version + 1, updated_at = now() WHERE id = $2")
         .bind(&password_hash)
         .bind(user_id)
         .execute(&mut *tx)

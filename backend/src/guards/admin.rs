@@ -1,5 +1,6 @@
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
+use subtle::ConstantTimeEq;
 
 use crate::services::rate_limit::RateLimiter;
 
@@ -26,7 +27,7 @@ impl<'r> FromRequest<'r> for AdminToken {
             .and_then(|h| h.strip_prefix("Bearer "));
 
         match token {
-            Some(t) if t == admin_token => Outcome::Success(AdminToken),
+            Some(t) if t.as_bytes().ct_eq(admin_token.as_bytes()).into() => Outcome::Success(AdminToken),
             Some(_) => Outcome::Error((Status::Unauthorized, "Invalid admin token")),
             None => Outcome::Error((Status::Unauthorized, "Missing admin token")),
         }
