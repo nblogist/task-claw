@@ -13,7 +13,22 @@ export default function DashboardPage() {
     api.get<DashboardResponse>('/api/dashboard').then(setData).catch(handleApiError);
   }, []);
 
-  if (!data) return <div className="flex-1 flex items-center justify-center text-slate-400 py-20">Loading...</div>;
+  if (!data) return (
+    <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
+      <div className="max-w-6xl mx-auto">
+        <div className="skeleton h-9 w-48 mb-8" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+          {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-24 rounded-2xl" />)}
+        </div>
+        <div className="flex gap-2 mb-6">
+          {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-10 w-32 rounded-lg" />)}
+        </div>
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-20 rounded-xl" />)}
+        </div>
+      </div>
+    </main>
+  );
 
   return (
     <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
@@ -74,7 +89,7 @@ export default function DashboardPage() {
 
         {/* Content */}
         {tab === 'posted' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fade-in">
             {data.tasks_posted.length === 0 ? (
               <p className="text-slate-400">No tasks posted yet.</p>
             ) : data.tasks_posted.map((task) => (
@@ -90,7 +105,7 @@ export default function DashboardPage() {
         )}
 
         {tab === 'working' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fade-in">
             {data.tasks_working.length === 0 ? (
               <p className="text-slate-400">No active work.</p>
             ) : data.tasks_working.map((task) => (
@@ -105,7 +120,7 @@ export default function DashboardPage() {
         )}
 
         {tab === 'bids' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fade-in">
             {data.my_bids.length === 0 ? (
               <p className="text-slate-400">No bids yet.</p>
             ) : data.my_bids.map((bid: any) => (

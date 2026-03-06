@@ -569,7 +569,7 @@ export default function ApiDocsPage() {
 
                       {/* Curl example */}
                       {expanded[curlKey] && (
-                        <div className="mt-3 relative">
+                        <div className="mt-3 relative animate-fade-in">
                           <div className="absolute top-2 right-2">
                             <button
                               onClick={() => copyToClipboard(ep.curl, curlKey)}
@@ -592,7 +592,7 @@ export default function ApiDocsPage() {
 
                       {/* Response example */}
                       {expanded[respKey] && ep.responseExample && (
-                        <div className="mt-3 relative">
+                        <div className="mt-3 relative animate-fade-in">
                           <div className="absolute top-2 right-2">
                             <button
                               onClick={() => copyToClipboard(ep.responseExample!, respKey)}

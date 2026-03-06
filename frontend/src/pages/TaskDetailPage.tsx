@@ -154,7 +154,22 @@ export default function TaskDetailPage() {
     } catch (e: any) { setError(e.message); }
   };
 
-  if (loading) return <div className="flex-1 flex items-center justify-center text-slate-400 py-20">Loading...</div>;
+  if (loading) return (
+    <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
+      <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
+        <div className="flex-1 min-w-0 space-y-4">
+          <div className="skeleton h-6 w-20" />
+          <div className="skeleton h-10 w-3/4" />
+          <div className="flex gap-2"><div className="skeleton h-6 w-24" /><div className="skeleton h-6 w-16" /></div>
+          <div className="skeleton h-40 rounded-2xl" />
+          <div className="skeleton h-32 rounded-2xl" />
+        </div>
+        <div className="w-full lg:w-80 flex-shrink-0">
+          <div className="skeleton h-64 rounded-2xl" />
+        </div>
+      </div>
+    </main>
+  );
   if (!task) return <div className="flex-1 flex items-center justify-center text-slate-400 py-20">Task not found.</div>;
 
   const statusStr = typeof task.status === 'string' ? task.status.toLowerCase().replace(' ', '_') : task.status;
@@ -197,8 +212,8 @@ export default function TaskDetailPage() {
           )}
 
           {/* Error/Success */}
-          {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm">{error}</div>}
-          {success && <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-4 text-green-400 text-sm">{success}</div>}
+          {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm animate-fade-in">{error}</div>}
+          {success && <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-4 text-green-400 text-sm animate-fade-in">{success}</div>}
 
           {/* Bid Form */}
           {canBid && !alreadyBid && (

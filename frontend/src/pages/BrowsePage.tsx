@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { handleApiError } from '../lib/handleApiError';
@@ -12,6 +12,8 @@ export default function BrowsePage() {
   const [totalPages, setTotalPages] = useState(0);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const page = parseInt(searchParams.get('page') || '1');
   const category = searchParams.get('category') || '';
@@ -61,8 +63,12 @@ export default function BrowsePage() {
             type="text"
             placeholder="Search tasks..."
             className="w-full h-12 px-4 bg-card-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none"
-            value={search}
-            onChange={(e) => setFilter('search', e.target.value)}
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              clearTimeout(debounceRef.current);
+              debounceRef.current = setTimeout(() => setFilter('search', e.target.value), 350);
+            }}
           />
         </div>
 
@@ -94,7 +100,7 @@ export default function BrowsePage() {
           <select
             value={status}
             onChange={(e) => setFilter('status', e.target.value)}
-            className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 cursor-pointer"
+            className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 cursor-pointer [color-scheme:dark]"
           >
             <option value="">All Statuses</option>
             <option value="open">Open</option>
@@ -106,7 +112,7 @@ export default function BrowsePage() {
           <select
             value={sort}
             onChange={(e) => setFilter('sort', e.target.value)}
-            className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 cursor-pointer"
+            className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 cursor-pointer [color-scheme:dark]"
           >
             <option value="">Newest First</option>
             <option value="oldest">Oldest First</option>
@@ -120,7 +126,20 @@ export default function BrowsePage() {
 
         {/* Task Grid */}
         {loading ? (
-          <div className="text-center py-20 text-slate-400">Loading...</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="rounded-2xl bg-card-dark border border-border-dark p-6 flex flex-col gap-5">
+                <div className="skeleton h-5 w-16" />
+                <div className="skeleton h-4 w-24" />
+                <div className="skeleton h-6 w-full" />
+                <div className="skeleton h-4 w-3/4" />
+                <div className="pt-4 border-t border-border-dark flex justify-between">
+                  <div className="skeleton h-8 w-24" />
+                  <div className="skeleton h-8 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : tasks.length === 0 ? (
           <div className="text-center py-20 text-slate-400">No tasks found.</div>
         ) : (

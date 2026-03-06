@@ -28,77 +28,81 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  const Logo = (
+    <Link to="/" className="flex items-center gap-3 text-primary cursor-pointer">
+      <div className="size-8 flex items-center justify-center bg-primary/10 rounded-lg">
+        <span className="material-symbols-outlined text-primary text-2xl">precision_manufacturing</span>
+      </div>
+      <h2 className="text-slate-100 text-xl font-bold tracking-tight">{APP_NAME}</h2>
+    </Link>
+  );
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border-dark bg-background-dark/80 backdrop-blur-md px-4 sm:px-6 md:px-20 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3 text-primary cursor-pointer">
-          <div className="size-8 flex items-center justify-center bg-primary/10 rounded-lg">
-            <span className="material-symbols-outlined text-primary text-2xl">precision_manufacturing</span>
-          </div>
-          <h2 className="text-slate-100 text-xl font-bold tracking-tight">{APP_NAME}</h2>
-        </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden min-[840px]:flex items-center gap-8">
+      {/* Desktop: 3-column grid so center nav never shifts */}
+      <div className="max-w-7xl mx-auto hidden min-[840px]:grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="justify-self-start">{Logo}</div>
+
+        <nav className="flex items-center gap-8">
           <Link to="/tasks" className="text-slate-300 hover:text-primary text-sm font-medium transition-colors cursor-pointer">Marketplace</Link>
           <Link to="/api-docs" className="text-slate-300 hover:text-primary text-sm font-medium transition-colors cursor-pointer">API Docs</Link>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 justify-self-end">
           {user ? (
-            <>
-              {/* User dropdown (desktop) */}
-              <div className="hidden min-[840px]:block relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 h-10 px-4 rounded-lg bg-card-dark border border-border-dark text-sm text-slate-100 font-medium hover:bg-slate-800 transition-all cursor-pointer"
-                >
-                  <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-                    {user.display_name[0]?.toUpperCase()}
-                  </div>
-                  <span className="max-w-[120px] truncate">{user.display_name}</span>
-                  <span className={`material-symbols-outlined text-slate-400 text-sm transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
-                </button>
-
-                {/* Dropdown */}
-                <div className={`absolute right-0 mt-2 w-48 bg-card-dark border border-border-dark rounded-xl shadow-xl overflow-hidden transition-all duration-200 origin-top-right ${userMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
-                  <Link to="/dashboard" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
-                    <span className="material-symbols-outlined text-base">dashboard</span>
-                    Dashboard
-                  </Link>
-                  <Link to={`/profile/${user.id}`} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
-                    <span className="material-symbols-outlined text-base">person</span>
-                    Profile
-                  </Link>
-                  <div className="border-t border-border-dark" />
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">logout</span>
-                    Sign Out
-                  </button>
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 h-10 px-4 rounded-lg bg-card-dark border border-border-dark text-sm text-slate-100 font-medium hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                  {user.display_name[0]?.toUpperCase()}
                 </div>
+                <span className="max-w-[120px] truncate">{user.display_name}</span>
+                <span className={`material-symbols-outlined text-slate-400 text-sm transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+              </button>
+
+              <div className={`absolute right-0 mt-2 w-48 bg-card-dark border border-border-dark rounded-xl shadow-xl overflow-hidden transition-all duration-200 origin-top-right ${userMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
+                <Link to="/dashboard" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
+                  <span className="material-symbols-outlined text-base">dashboard</span>
+                  Dashboard
+                </Link>
+                <Link to={`/profile/${user.id}`} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
+                  <span className="material-symbols-outlined text-base">person</span>
+                  Profile
+                </Link>
+                <div className="border-t border-border-dark" />
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">logout</span>
+                  Sign Out
+                </button>
               </div>
-            </>
+            </div>
           ) : (
-            <Link to="/login" className="hidden min-[840px]:flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
+            <Link to="/login" className="flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
               Sign In
             </Link>
           )}
-          <Link to="/post" className="hidden min-[840px]:flex h-10 px-5 items-center justify-center rounded-lg bg-primary text-white text-sm font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20 cursor-pointer">
+          <Link to="/post" className="flex h-10 px-5 items-center justify-center rounded-lg bg-primary text-white text-sm font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20 cursor-pointer">
             Post a Task
           </Link>
-
-          {/* Hamburger button (mobile) */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="min-[840px]:hidden flex items-center justify-center size-10 rounded-lg bg-card-dark border border-border-dark text-slate-300 hover:text-white transition-colors cursor-pointer"
-            aria-label="Toggle menu"
-          >
-            <span className="material-symbols-outlined">{menuOpen ? 'close' : 'menu'}</span>
-          </button>
         </div>
+      </div>
+
+      {/* Mobile: simple flex row with logo + hamburger */}
+      <div className="min-[840px]:hidden flex items-center justify-between">
+        {Logo}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="flex items-center justify-center size-10 rounded-lg bg-card-dark border border-border-dark text-slate-300 hover:text-white transition-colors cursor-pointer"
+          aria-label="Toggle menu"
+        >
+          <span className="material-symbols-outlined">{menuOpen ? 'close' : 'menu'}</span>
+        </button>
       </div>
 
       {/* Mobile menu with transition */}

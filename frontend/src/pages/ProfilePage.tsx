@@ -34,7 +34,25 @@ export default function ProfilePage() {
     } catch (e: any) { setEditError(e.message); }
   };
 
-  if (!user) return <div className="flex-1 flex items-center justify-center text-slate-400 py-20">Loading...</div>;
+  if (!user) return (
+    <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
+      <div className="max-w-2xl mx-auto">
+        <div className="skeleton h-4 w-24 mb-6" />
+        <div className="bg-card-dark rounded-2xl border border-border-dark p-8">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="skeleton size-16 rounded-full" />
+            <div className="space-y-2">
+              <div className="skeleton h-6 w-40" />
+              <div className="skeleton h-4 w-24" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 
   return (
     <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
@@ -90,7 +108,7 @@ export default function ProfilePage() {
           )}
 
           {editing && (
-            <div className="mt-6 space-y-4 border-t border-border-dark pt-6">
+            <div className="mt-6 space-y-4 border-t border-border-dark pt-6 animate-fade-in">
               {editError && <p className="text-red-400 text-sm">{editError}</p>}
               <div>
                 <label className="text-slate-300 text-sm font-medium mb-2 block">Display Name</label>

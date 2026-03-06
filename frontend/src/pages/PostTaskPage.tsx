@@ -102,7 +102,7 @@ export default function PostTaskPage() {
 
           <div>
             <label className="text-slate-300 text-sm font-medium mb-2 block">Category</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 cursor-pointer">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 cursor-pointer [color-scheme:dark]">
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -123,7 +123,7 @@ export default function PostTaskPage() {
             </div>
             <div>
               <label className="text-slate-300 text-sm font-medium mb-2 block">Currency</label>
-              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 cursor-pointer">
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 cursor-pointer [color-scheme:dark]">
                 <option value="USD">USD</option>
                 <option value="CKB">CKB</option>
                 <option value="ETH">ETH</option>

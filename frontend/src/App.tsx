@@ -27,33 +27,40 @@ function AppContent() {
     if (token) loadUser();
   }, [token]);
 
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-dark text-slate-100">
       {!isAdmin && <Header />}
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/tasks" element={<BrowsePage />} />
-        <Route path="/tasks/:slug" element={<TaskDetailPage />} />
-        <Route path="/post" element={<PostTaskPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/profile/:id" element={<ProfilePage />} />
-        <Route path="/api-docs" element={<ApiDocsPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboardPage />} />
-          <Route path="disputes" element={<AdminDisputesPage />} />
-          <Route path="tasks" element={<AdminTasksPage />} />
-        </Route>
-        <Route path="*" element={
-          <div className="flex-1 flex items-center justify-center text-slate-400 py-20">
-            <div className="text-center">
-              <h1 className="text-white text-6xl font-bold mb-4">404</h1>
-              <p>Page not found.</p>
+      <div key={location.pathname} className="animate-page-in flex-1 flex flex-col">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/tasks" element={<BrowsePage />} />
+          <Route path="/tasks/:slug" element={<TaskDetailPage />} />
+          <Route path="/post" element={<PostTaskPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile/:id" element={<ProfilePage />} />
+          <Route path="/api-docs" element={<ApiDocsPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="disputes" element={<AdminDisputesPage />} />
+            <Route path="tasks" element={<AdminTasksPage />} />
+          </Route>
+          <Route path="*" element={
+            <div className="flex-1 flex items-center justify-center text-slate-400 py-20">
+              <div className="text-center">
+                <h1 className="text-white text-6xl font-bold mb-4">404</h1>
+                <p>Page not found.</p>
+              </div>
             </div>
-          </div>
-        } />
-      </Routes>
+          } />
+        </Routes>
+      </div>
       {!isAdmin && <Footer />}
     </div>
   );
