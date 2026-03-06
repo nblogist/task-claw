@@ -166,11 +166,17 @@ pub async fn approve_delivery(
     Ok(Json(updated))
 }
 
-#[rocket::post("/api/tasks/<id>/revision")]
+#[derive(serde::Deserialize)]
+pub struct RevisionRequest {
+    pub message: Option<String>,
+}
+
+#[rocket::post("/api/tasks/<id>/revision", data = "<body>")]
 pub async fn request_revision(
     pool: &State<PgPool>,
     auth: AuthUser,
     id: &str,
+    body: Option<Json<RevisionRequest>>,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
     let task_id = Uuid::parse_str(id)
         .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
@@ -203,6 +209,21 @@ pub async fn request_revision(
 
     if delivery_count > 1 {
         return Err(ApiError::bad_request("Only one revision is allowed"));
+    }
+
+    let revision_msg = body.and_then(|b| b.into_inner().message).unwrap_or_default();
+
+    // Store revision message as a delivery note from buyer
+    if !revision_msg.is_empty() {
+        sqlx::query(
+            "INSERT INTO deliveries (task_id, seller_id, message, revision_of) VALUES ($1, $2, $3, (SELECT id FROM deliveries WHERE task_id = $1 ORDER BY created_at DESC LIMIT 1))"
+        )
+        .bind(task_id)
+        .bind(auth.user_id)
+        .bind(&format!("[Revision Request] {}", revision_msg))
+        .execute(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
     }
 
     // Return to in_escrow for resubmission
@@ -304,10 +325,37 @@ pub async fn raise_dispute(
 #[rocket::get("/api/tasks/<id>/deliveries")]
 pub async fn list_deliveries(
     pool: &State<PgPool>,
+    auth: AuthUser,
     id: &str,
 ) -> Result<Json<Vec<Delivery>>, (Status, Json<ApiError>)> {
     let task_id = Uuid::parse_str(id)
         .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+
+    // Verify requester is buyer or accepted seller
+    let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
+        .bind(task_id)
+        .fetch_optional(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?
+        .ok_or_else(|| ApiError::not_found("Task not found"))?;
+
+    let is_buyer = task.buyer_id == auth.user_id;
+    let is_seller = if let Some(accepted_bid_id) = task.accepted_bid_id {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM bids WHERE id = $1 AND seller_id = $2"
+        )
+        .bind(accepted_bid_id)
+        .bind(auth.user_id)
+        .fetch_one(pool.inner())
+        .await
+        .unwrap_or(0) > 0
+    } else {
+        false
+    };
+
+    if !is_buyer && !is_seller {
+        return Err(ApiError::forbidden("Only the buyer or accepted seller can view deliveries"));
+    }
 
     let deliveries = sqlx::query_as::<_, Delivery>(
         "SELECT * FROM deliveries WHERE task_id = $1 ORDER BY created_at DESC"

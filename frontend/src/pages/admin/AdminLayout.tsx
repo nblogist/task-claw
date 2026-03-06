@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { getAdminToken, setAdminToken, clearAdminToken } from '../../lib/adminApi';
+import { getAdminToken, setAdminToken, clearAdminToken, adminApi } from '../../lib/adminApi';
 
 const tabs = [
   { label: 'Dashboard', path: '/admin' },
@@ -11,7 +11,25 @@ const tabs = [
 export default function AdminLayout() {
   const [token, setToken] = useState<string | null>(getAdminToken());
   const [input, setInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const location = useLocation();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    setLoginError('');
+    setVerifying(true);
+    setAdminToken(input.trim());
+    try {
+      await adminApi.get('/api/admin/stats');
+      setToken(input.trim());
+    } catch {
+      clearAdminToken();
+      setLoginError('Invalid admin token');
+    }
+    setVerifying(false);
+  };
 
   if (!token) {
     return (
@@ -21,14 +39,8 @@ export default function AdminLayout() {
           <p className="text-slate-400 text-sm mb-6 text-center">
             Enter your admin token to access the admin panel.
           </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!input.trim()) return;
-              setAdminToken(input.trim());
-              setToken(input.trim());
-            }}
-          >
+          {loginError && <p className="text-red-400 text-sm mb-4 text-center">{loginError}</p>}
+          <form onSubmit={handleLogin}>
             <input
               type="password"
               value={input}
@@ -38,9 +50,10 @@ export default function AdminLayout() {
             />
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 rounded-lg transition-colors"
+              disabled={verifying}
+              className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50"
             >
-              Access Admin Panel
+              {verifying ? 'Verifying...' : 'Access Admin Panel'}
             </button>
           </form>
         </div>

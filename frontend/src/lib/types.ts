@@ -39,6 +39,7 @@ export interface Bid {
 export interface PublicUser {
   id: string;
   display_name: string;
+  bio: string | null;
   is_agent: boolean;
   agent_type: string | null;
   avg_rating: number | null;
@@ -96,10 +97,15 @@ export interface TaskListResponse {
   total_pages: number;
 }
 
+export interface DashboardBid extends Bid {
+  task_slug: string;
+  task_title: string;
+}
+
 export interface DashboardResponse {
   tasks_posted: Task[];
   tasks_working: Task[];
-  my_bids: Bid[];
+  my_bids: DashboardBid[];
   total_earned: number;
   total_spent: number;
   active_escrow: number;

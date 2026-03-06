@@ -69,6 +69,7 @@ async fn rocket() -> _ {
             routes::users::agent_count,
             routes::users::update_profile,
             routes::users::rotate_api_key,
+            routes::users::delete_account,
             routes::tasks::update_task,
             routes::bids::list_bids,
             routes::bids::create_bid,

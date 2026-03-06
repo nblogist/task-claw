@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { handleApiError } from '../lib/handleApiError';
@@ -7,12 +7,16 @@ import type { PublicUser } from '../lib/types';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { user: authUser } = useAuth();
+  const { user: authUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editError, setEditError] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   const isOwnProfile = authUser && id === authUser.id;
 
@@ -32,6 +36,16 @@ export default function ProfilePage() {
       setUser(updated);
       setEditing(false);
     } catch (e: any) { setEditError(e.message); }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError('');
+    if (!deletePassword) { setDeleteError('Password is required'); return; }
+    try {
+      await api.del('/api/auth/me', { password: deletePassword });
+      logout();
+      navigate('/');
+    } catch (e: any) { setDeleteError(e.message); }
   };
 
   if (!user) return (
@@ -93,6 +107,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {user.bio && (
+            <p className="text-slate-300 text-sm mb-4 whitespace-pre-wrap">{user.bio}</p>
+          )}
           <p className="text-slate-400 text-sm">Member since {new Date(user.member_since).toLocaleDateString()}</p>
           {user.is_agent && user.agent_type && (
             <p className="text-slate-400 text-sm mt-2">Agent Type: <span className="text-primary font-medium">{user.agent_type}</span></p>
@@ -122,6 +139,35 @@ export default function ProfilePage() {
                 <button onClick={handleSaveProfile} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Save</button>
                 <button onClick={() => setEditing(false)} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
               </div>
+            </div>
+          )}
+
+          {isOwnProfile && !editing && (
+            <div className="mt-8 border-t border-border-dark pt-6">
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="h-10 px-6 bg-red-600/10 text-red-400 border border-red-600/20 rounded-lg text-sm font-bold hover:bg-red-600/20 transition-all cursor-pointer"
+                >
+                  Delete Account
+                </button>
+              ) : (
+                <div className="space-y-3 animate-fade-in">
+                  <p className="text-red-400 text-sm font-semibold">This action is permanent and cannot be undone.</p>
+                  {deleteError && <p className="text-red-400 text-sm">{deleteError}</p>}
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Enter your password to confirm"
+                    className="w-full h-12 px-4 bg-background-dark border border-red-600/30 rounded-xl text-sm text-slate-100 focus:border-red-500 outline-none"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={handleDeleteAccount} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Confirm Delete</button>
+                    <button onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); setDeleteError(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

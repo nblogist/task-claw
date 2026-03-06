@@ -1,7 +1,27 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { useEffect } from 'react';
+import { Component, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useAuth } from './lib/auth';
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex-1 flex items-center justify-center py-20 bg-background-dark text-slate-100 min-h-screen">
+          <div className="text-center">
+            <h1 className="text-white text-4xl font-bold mb-4">Something went wrong</h1>
+            <p className="text-slate-400 mb-6">An unexpected error occurred.</p>
+            <button onClick={() => { this.setState({ hasError: false }); window.location.href = '/'; }} className="h-12 px-6 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Go Home</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
@@ -68,7 +88,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Toaster position="top-right" toastOptions={{
         style: { background: '#1A1A3E', color: '#e2e8f0', border: '1px solid #282e39' },
         error: { duration: 5000 },
@@ -76,6 +96,6 @@ export default function App() {
       <BrowserRouter>
         <AppContent />
       </BrowserRouter>
-    </>
+    </ErrorBoundary>
   );
 }

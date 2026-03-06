@@ -12,57 +12,41 @@ use crate::models::dispute::{AdminStatsResponse, DisputeDetail, ResolveDisputeRe
 use crate::models::task::TaskStatus;
 use crate::services::task_lifecycle::can_transition;
 
+#[derive(Debug, sqlx::FromRow)]
+struct AdminStatsRow {
+    total_tasks: i64,
+    open_tasks: i64,
+    completed_tasks: i64,
+    total_escrow_value: Option<Decimal>,
+    dispute_count: i64,
+    total_users: i64,
+}
+
 #[get("/api/admin/stats")]
 pub async fn admin_stats(
     _admin: AdminToken,
     pool: &State<PgPool>,
 ) -> Result<Json<AdminStatsResponse>, (Status, Json<ApiError>)> {
-    let total_tasks = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM tasks")
-        .fetch_one(pool.inner())
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
-
-    let open_tasks = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM tasks WHERE status = 'open' OR status = 'bidding'"
+    let row = sqlx::query_as::<_, AdminStatsRow>(
+        r#"SELECT
+            (SELECT COUNT(*) FROM tasks) AS total_tasks,
+            (SELECT COUNT(*) FROM tasks WHERE status IN ('open', 'bidding')) AS open_tasks,
+            (SELECT COUNT(*) FROM tasks WHERE status = 'completed') AS completed_tasks,
+            (SELECT COALESCE(SUM(amount), 0) FROM escrow WHERE status IN ('locked', 'disputed')) AS total_escrow_value,
+            (SELECT COUNT(*) FROM disputes WHERE resolution IS NULL) AS dispute_count,
+            (SELECT COUNT(*) FROM users) AS total_users"#,
     )
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
-
-    let completed_tasks = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM tasks WHERE status = 'completed'"
-    )
-    .fetch_one(pool.inner())
-    .await
-    .map_err(|e| ApiError::internal(e.to_string()))?;
-
-    let total_escrow_value = sqlx::query_scalar::<_, Option<Decimal>>(
-        "SELECT COALESCE(SUM(amount), 0) FROM escrow WHERE status = 'locked' OR status = 'disputed'"
-    )
-    .fetch_one(pool.inner())
-    .await
-    .map_err(|e| ApiError::internal(e.to_string()))?
-    .unwrap_or(Decimal::ZERO);
-
-    let dispute_count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM disputes WHERE resolution IS NULL"
-    )
-    .fetch_one(pool.inner())
-    .await
-    .map_err(|e| ApiError::internal(e.to_string()))?;
-
-    let total_users = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
-        .fetch_one(pool.inner())
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(AdminStatsResponse {
-        total_tasks,
-        open_tasks,
-        completed_tasks,
-        total_escrow_value,
-        dispute_count,
-        total_users,
+        total_tasks: row.total_tasks,
+        open_tasks: row.open_tasks,
+        completed_tasks: row.completed_tasks,
+        total_escrow_value: row.total_escrow_value.unwrap_or(Decimal::ZERO),
+        dispute_count: row.dispute_count,
+        total_users: row.total_users,
     }))
 }
 
@@ -73,16 +57,19 @@ pub async fn list_disputes(
 ) -> Result<Json<Vec<DisputeDetail>>, (Status, Json<ApiError>)> {
     let disputes = sqlx::query_as::<_, DisputeDetail>(
         r#"SELECT
-            d.id, d.task_id, t.title AS task_title, t.slug AS task_slug, t.status AS task_status,
+            d.id, d.task_id, t.title AS task_title, t.slug AS task_slug,
+            t.description AS task_description, t.status AS task_status,
             d.raised_by, d.reason, d.resolution, d.admin_note, d.resolved_at, d.created_at,
             t.buyer_id, buyer.display_name AS buyer_name,
             e.seller_id, seller.display_name AS seller_name,
-            e.amount AS escrow_amount
+            e.amount AS escrow_amount,
+            b.price AS bid_price, b.pitch AS bid_pitch
         FROM disputes d
         JOIN tasks t ON d.task_id = t.id
         JOIN users buyer ON t.buyer_id = buyer.id
         JOIN escrow e ON e.task_id = t.id
         JOIN users seller ON e.seller_id = seller.id
+        LEFT JOIN bids b ON b.id = t.accepted_bid_id
         ORDER BY d.created_at DESC"#,
     )
     .fetch_all(pool.inner())

@@ -9,6 +9,7 @@ use crate::guards::auth::AuthUser;
 use crate::models::user::*;
 use crate::services::auth::{create_token, hash_password, verify_password};
 use crate::services::rate_limit::RateLimiter;
+use serde_json::json;
 
 #[derive(serde::Serialize)]
 pub struct AgentCountResponse {
@@ -239,4 +240,78 @@ pub async fn rotate_api_key(
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(RotateKeyResponse { api_key: new_key }))
+}
+
+#[derive(serde::Deserialize)]
+pub struct DeleteAccountRequest {
+    pub password: String,
+}
+
+#[rocket::delete("/api/auth/me", data = "<body>")]
+pub async fn delete_account(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    body: Json<DeleteAccountRequest>,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    let body = body.into_inner();
+
+    // Verify password
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        .bind(auth.user_id)
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let valid = verify_password(&body.password, &user.password_hash)
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    if !valid {
+        return Err(ApiError::unauthorized("Incorrect password"));
+    }
+
+    // Check for active escrows
+    let active_escrow = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM escrow WHERE (buyer_id = $1 OR seller_id = $1) AND status IN ('locked', 'disputed')"
+    )
+    .bind(auth.user_id)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    if active_escrow > 0 {
+        return Err(ApiError::bad_request("Cannot delete account with active escrow. Resolve all active tasks first."));
+    }
+
+    let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Delete dependent records in FK order
+    sqlx::query("DELETE FROM ratings WHERE rater_id = $1 OR ratee_id = $1")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM deliveries WHERE seller_id = $1")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM disputes WHERE raised_by = $1")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM escrow WHERE buyer_id = $1 OR seller_id = $1")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM bids WHERE seller_id = $1")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    // Delete tasks owned by this user (and their dependent records)
+    sqlx::query("DELETE FROM ratings WHERE task_id IN (SELECT id FROM tasks WHERE buyer_id = $1)")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM deliveries WHERE task_id IN (SELECT id FROM tasks WHERE buyer_id = $1)")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM disputes WHERE task_id IN (SELECT id FROM tasks WHERE buyer_id = $1)")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM escrow WHERE task_id IN (SELECT id FROM tasks WHERE buyer_id = $1)")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM bids WHERE task_id IN (SELECT id FROM tasks WHERE buyer_id = $1)")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM tasks WHERE buyer_id = $1")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(auth.user_id).execute(&mut *tx).await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(json!({"message": "Account deleted"})))
 }

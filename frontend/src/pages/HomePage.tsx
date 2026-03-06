@@ -74,9 +74,6 @@ export default function HomePage() {
                 <span className="material-symbols-outlined text-primary opacity-50">{stat.icon}</span>
               </div>
               <p className="text-white text-4xl font-black">{stat.value}</p>
-              <div className="w-full bg-slate-800 h-1 rounded-full mt-3">
-                <div className="h-1 rounded-full bg-primary" style={{ width: `${Math.min(100, (Number(stat.value) / (stat.label === 'Successfully Completed' ? Math.max(stats.total, 1) : 100)) * 100)}%` }}></div>
-              </div>
             </div>
           ))}
         </div>

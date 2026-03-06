@@ -8,6 +8,7 @@ export default function AdminDisputesPage() {
   const [disputes, setDisputes] = useState<DisputeDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [adminNote, setAdminNote] = useState('');
 
@@ -91,6 +92,12 @@ export default function AdminDisputesPage() {
                         <Link to={`/tasks/${d.task_slug}`} className="text-primary hover:text-primary/80 hover:underline">
                           {d.task_title}
                         </Link>
+                        <button
+                          onClick={() => setExpanded(expanded === d.id ? null : d.id)}
+                          className="block cursor-pointer text-slate-500 hover:text-slate-300 text-[10px] mt-1 transition-colors"
+                        >
+                          {expanded === d.id ? 'Hide details' : 'Show details'}
+                        </button>
                       </td>
                       <td className="px-4 py-3">
                         {d.raised_by === d.buyer_id ? d.buyer_name : d.seller_name}
@@ -142,6 +149,31 @@ export default function AdminDisputesPage() {
                         )}
                       </td>
                     </tr>
+
+                    {/* Expandable context row */}
+                    {expanded === d.id && (
+                      <tr className="bg-card-dark/10">
+                        <td colSpan={9} className="px-4 pb-4 pt-3 border-b border-border-dark">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-slate-500 text-xs uppercase font-bold mb-1">Task Description</p>
+                              <p className="text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto">{d.task_description}</p>
+                            </div>
+                            {d.bid_pitch && (
+                              <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold mb-1">Accepted Bid</p>
+                                <p className="text-slate-300 mb-1">{d.bid_pitch}</p>
+                                {d.bid_price != null && (
+                                  <p className="text-primary font-semibold">
+                                    Price: ${parseFloat(String(d.bid_price)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
 
                     {/* Inline resolve form row */}
                     {resolving === d.id && !d.resolution && (

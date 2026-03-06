@@ -11,6 +11,7 @@ export interface DisputeDetail {
   task_id: string;
   task_title: string;
   task_slug: string;
+  task_description: string;
   task_status: string;
   raised_by: string;
   reason: string;
@@ -23,6 +24,8 @@ export interface DisputeDetail {
   seller_id: string;
   seller_name: string;
   escrow_amount: number | string | null;
+  bid_price: number | string | null;
+  bid_pitch: string | null;
 }
 
 export interface ResolveDisputeRequest {

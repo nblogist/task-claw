@@ -10,7 +10,33 @@ use crate::models::bid::*;
 use crate::models::escrow::Escrow;
 use crate::models::task::{Task, TaskStatus};
 use crate::models::user::{PublicUser, User};
+use crate::services::rate_limit::RateLimiter;
 use crate::services::task_lifecycle::can_transition;
+
+#[derive(Debug, sqlx::FromRow)]
+struct BidWithSellerRow {
+    // Bid fields
+    id: Uuid,
+    task_id: Uuid,
+    seller_id: Uuid,
+    price: rust_decimal::Decimal,
+    currency: String,
+    estimated_delivery_days: i32,
+    pitch: String,
+    status: BidStatus,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+    // Seller fields (nullable from LEFT JOIN)
+    seller_uuid: Option<Uuid>,
+    seller_display_name: Option<String>,
+    seller_is_agent: Option<bool>,
+    seller_agent_type: Option<String>,
+    seller_avg_rating: Option<rust_decimal::Decimal>,
+    seller_total_ratings: Option<i32>,
+    seller_tasks_posted: Option<i32>,
+    seller_tasks_completed: Option<i32>,
+    seller_created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
 
 #[rocket::get("/api/tasks/<slug>/bids")]
 pub async fn list_bids(
@@ -26,28 +52,54 @@ pub async fn list_bids(
     .map_err(|e| ApiError::internal(e.to_string()))?
     .ok_or_else(|| ApiError::not_found("Task not found"))?;
 
-    let bids = sqlx::query_as::<_, Bid>(
-        "SELECT * FROM bids WHERE task_id = $1 ORDER BY created_at DESC"
+    // Single query with LEFT JOIN to eliminate N+1
+    let rows = sqlx::query_as::<_, BidWithSellerRow>(
+        r#"SELECT b.*,
+            u.id AS seller_uuid, u.display_name AS seller_display_name,
+            u.is_agent AS seller_is_agent, u.agent_type AS seller_agent_type,
+            u.avg_rating AS seller_avg_rating, u.total_ratings AS seller_total_ratings,
+            u.tasks_posted AS seller_tasks_posted, u.tasks_completed AS seller_tasks_completed,
+            u.created_at AS seller_created_at
+        FROM bids b
+        LEFT JOIN users u ON u.id = b.seller_id
+        WHERE b.task_id = $1
+        ORDER BY b.created_at DESC"#
     )
     .bind(task_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    let mut result = Vec::new();
-    for bid in bids {
-        let seller = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE id = $1"
-        )
-        .bind(bid.seller_id)
-        .fetch_optional(pool.inner())
-        .await
-        .ok()
-        .flatten()
-        .map(|u| PublicUser::from(&u));
+    let result: Vec<BidWithSeller> = rows.into_iter().map(|row| {
+        let seller = row.seller_uuid.map(|id| PublicUser {
+            id,
+            display_name: row.seller_display_name.unwrap_or_default(),
+            bio: None,
+            is_agent: row.seller_is_agent.unwrap_or(false),
+            agent_type: row.seller_agent_type,
+            avg_rating: row.seller_avg_rating,
+            total_ratings: row.seller_total_ratings.unwrap_or(0),
+            tasks_posted: row.seller_tasks_posted.unwrap_or(0),
+            tasks_completed: row.seller_tasks_completed.unwrap_or(0),
+            member_since: row.seller_created_at.unwrap_or_default(),
+        });
 
-        result.push(BidWithSeller { bid, seller });
-    }
+        BidWithSeller {
+            bid: Bid {
+                id: row.id,
+                task_id: row.task_id,
+                seller_id: row.seller_id,
+                price: row.price,
+                currency: row.currency,
+                estimated_delivery_days: row.estimated_delivery_days,
+                pitch: row.pitch,
+                status: row.status,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            },
+            seller,
+        }
+    }).collect();
 
     Ok(Json(result))
 }
@@ -55,10 +107,14 @@ pub async fn list_bids(
 #[rocket::post("/api/tasks/<id>/bids", data = "<body>")]
 pub async fn create_bid(
     pool: &State<PgPool>,
+    limiter: &State<RateLimiter>,
     auth: AuthUser,
     id: &str,
     body: Json<CreateBidRequest>,
 ) -> Result<Json<Bid>, (Status, Json<ApiError>)> {
+    if !limiter.check(&format!("create_bid:{}", auth.user_id)) {
+        return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
+    }
     let task_id = Uuid::parse_str(id)
         .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
 

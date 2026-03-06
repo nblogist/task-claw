@@ -40,6 +40,7 @@ pub struct DisputeDetail {
     pub task_id: Uuid,
     pub task_title: String,
     pub task_slug: String,
+    pub task_description: String,
     pub task_status: super::task::TaskStatus,
     pub raised_by: Uuid,
     pub reason: String,
@@ -52,6 +53,8 @@ pub struct DisputeDetail {
     pub seller_id: Uuid,
     pub seller_name: String,
     pub escrow_amount: Option<Decimal>,
+    pub bid_price: Option<Decimal>,
+    pub bid_pitch: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

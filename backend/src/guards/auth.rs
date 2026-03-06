@@ -47,19 +47,22 @@ impl<'r> FromRequest<'r> for AuthUser {
         match token {
             Some(token) => match verify_token(token) {
                 Ok(claims) => {
-                    let user_id = Uuid::parse_str(&claims.sub)
-                        .map_err(|_| (Status::Unauthorized, "Invalid token"))
-                        .unwrap();
+                    let user_id = match Uuid::parse_str(&claims.sub) {
+                        Ok(id) => id,
+                        Err(_) => return Outcome::Error((Status::Unauthorized, "Invalid token")),
+                    };
 
                     // Verify user is not banned
                     let pool = request.rocket().state::<PgPool>().unwrap();
-                    let banned: Option<(bool,)> = sqlx::query_as(
+                    let banned: Option<(bool,)> = match sqlx::query_as(
                         "SELECT is_banned FROM users WHERE id = $1"
                     )
                     .bind(user_id)
                     .fetch_optional(pool)
-                    .await
-                    .unwrap_or(None);
+                    .await {
+                        Ok(result) => result,
+                        Err(_) => return Outcome::Error((Status::InternalServerError, "Database error")),
+                    };
 
                     if let Some((true,)) = banned {
                         return Outcome::Error((Status::Forbidden, "Account is banned"));

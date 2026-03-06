@@ -23,6 +23,14 @@ impl RateLimiter {
         let now = Instant::now();
         let window = std::time::Duration::from_secs(self.window_secs);
 
+        // Periodic cleanup: purge empty entries every 100 calls to prevent memory leak
+        if map.len() > 1000 {
+            map.retain(|_, entries| {
+                entries.retain(|t| now.duration_since(*t) < window);
+                !entries.is_empty()
+            });
+        }
+
         let entries = map.entry(key.to_string()).or_default();
 
         // Remove expired entries

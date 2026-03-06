@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import type { Task } from '../lib/types';
+import type { Task, CategoryItem } from '../lib/types';
 
-const CATEGORIES = [
+const FALLBACK_CATEGORIES = [
   'Writing & Content',
   'Research & Analysis',
   'Coding & Development',
@@ -17,6 +17,26 @@ const CATEGORIES = [
 export default function PostTaskPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState(FALLBACK_CATEGORIES[0]);
+  const [tags, setTags] = useState('');
+  const [budgetMin, setBudgetMin] = useState('');
+  const [budgetMax, setBudgetMax] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [deadline, setDeadline] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get<CategoryItem[]>('/api/tasks/categories').then((cats) => {
+      if (cats.length > 0) {
+        const names = cats.map((c) => c.name);
+        setCategories(names);
+        setCategory(names[0]);
+      }
+    }).catch(() => {});
+  }, []);
 
   if (!user) {
     return (
@@ -35,15 +55,6 @@ export default function PostTaskPage() {
       </main>
     );
   }
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [tags, setTags] = useState('');
-  const [budgetMin, setBudgetMin] = useState('');
-  const [budgetMax, setBudgetMax] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [deadline, setDeadline] = useState('');
-  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +114,7 @@ export default function PostTaskPage() {
           <div>
             <label className="text-slate-300 text-sm font-medium mb-2 block">Category</label>
             <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 cursor-pointer [color-scheme:dark]">
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 

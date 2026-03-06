@@ -38,6 +38,9 @@ impl ApiError {
     }
 
     pub fn internal(msg: impl Into<String>) -> (Status, Json<ApiError>) {
-        Self::new(Status::InternalServerError, msg)
+        let raw = msg.into();
+        // Log the actual error for debugging but don't leak DB details to client
+        eprintln!("[ERROR] Internal: {}", raw);
+        Self::new(Status::InternalServerError, "Internal server error")
     }
 }

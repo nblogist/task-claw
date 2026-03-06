@@ -34,6 +34,14 @@ export default function TaskDetailPage() {
   const [ratingComment, setRatingComment] = useState('');
   const [hasRated, setHasRated] = useState(false);
 
+  // Revision form
+  const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [revisionMessage, setRevisionMessage] = useState('');
+
+  // Dispute form
+  const [showDisputeForm, setShowDisputeForm] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -48,7 +56,9 @@ export default function TaskDetailPage() {
         const d = await api.get<Delivery[]>(`/api/tasks/${t.id}/deliveries`).catch(() => []);
         setDeliveries(d);
       }
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      setError(e.message || 'Failed to load task');
+    }
     setLoading(false);
   };
 
@@ -101,6 +111,7 @@ export default function TaskDetailPage() {
 
   const handleApprove = async () => {
     if (!task) return;
+    if (!window.confirm('Are you sure you want to approve this delivery and release payment?')) return;
     setError(''); setSuccess('');
     try {
       await api.post(`/api/tasks/${task.id}/approve`);
@@ -113,20 +124,24 @@ export default function TaskDetailPage() {
     if (!task) return;
     setError(''); setSuccess('');
     try {
-      await api.post(`/api/tasks/${task.id}/revision`);
+      await api.post(`/api/tasks/${task.id}/revision`, {
+        message: revisionMessage.trim() || null,
+      });
       setSuccess('Revision requested.');
+      setShowRevisionForm(false);
+      setRevisionMessage('');
       fetchTask();
     } catch (e: any) { setError(e.message); }
   };
 
   const handleDispute = async () => {
-    if (!task) return;
-    const reason = prompt('Describe the dispute reason:');
-    if (!reason) return;
+    if (!task || !disputeReason.trim()) return;
     setError(''); setSuccess('');
     try {
-      await api.post(`/api/tasks/${task.id}/dispute`, { reason });
+      await api.post(`/api/tasks/${task.id}/dispute`, { reason: disputeReason.trim() });
       setSuccess('Dispute raised.');
+      setShowDisputeForm(false);
+      setDisputeReason('');
       fetchTask();
     } catch (e: any) { setError(e.message); }
   };
@@ -245,21 +260,63 @@ export default function TaskDetailPage() {
               {deliveries.length > 0 && (
                 <div className="bg-background-dark rounded-xl p-4 mb-4">
                   <p className="text-slate-200">{deliveries[0].message}</p>
-                  {deliveries[0].url && <a href={deliveries[0].url} target="_blank" className="text-primary hover:underline text-sm cursor-pointer">{deliveries[0].url}</a>}
+                  {deliveries[0].url && <a href={deliveries[0].url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm cursor-pointer">{deliveries[0].url}</a>}
                 </div>
               )}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button onClick={handleApprove} className="w-full sm:w-auto h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer">Approve & Release Payment</button>
-                <button onClick={handleRevision} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
-                <button onClick={handleDispute} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
+                <button onClick={() => setShowRevisionForm(!showRevisionForm)} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
+                <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               </div>
+              {showRevisionForm && (
+                <div className="mt-4 space-y-3">
+                  <textarea
+                    value={revisionMessage}
+                    onChange={(e) => setRevisionMessage(e.target.value)}
+                    placeholder="What changes do you need? (optional)"
+                    className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={handleRevision} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer">Submit Revision Request</button>
+                    <button onClick={() => { setShowRevisionForm(false); setRevisionMessage(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
+                  </div>
+                </div>
+              )}
+              {showDisputeForm && (
+                <div className="mt-4 space-y-3">
+                  <textarea
+                    value={disputeReason}
+                    onChange={(e) => setDisputeReason(e.target.value)}
+                    placeholder="Describe the reason for this dispute..."
+                    className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={handleDispute} disabled={!disputeReason.trim()} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Submit Dispute</button>
+                    <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Seller Dispute Option */}
           {isAcceptedSeller && (statusStr === 'delivered' || statusStr === 'in_escrow' || statusStr === 'inescrow') && (
             <div className="mb-6">
-              <button onClick={handleDispute} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-sm font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
+              <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-sm font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
+              {showDisputeForm && (
+                <div className="mt-3 space-y-3">
+                  <textarea
+                    value={disputeReason}
+                    onChange={(e) => setDisputeReason(e.target.value)}
+                    placeholder="Describe the reason for this dispute..."
+                    className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={handleDispute} disabled={!disputeReason.trim()} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Submit Dispute</button>
+                    <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

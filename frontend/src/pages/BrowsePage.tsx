@@ -106,7 +106,11 @@ export default function BrowsePage() {
             <option value="open">Open</option>
             <option value="bidding">Bidding</option>
             <option value="in_escrow">In Escrow</option>
+            <option value="delivered">Delivered</option>
             <option value="completed">Completed</option>
+            <option value="disputed">Disputed</option>
+            <option value="expired">Expired</option>
+            <option value="cancelled">Cancelled</option>
           </select>
 
           <select
@@ -150,20 +154,45 @@ export default function BrowsePage() {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Pagination (windowed) */}
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 mt-10">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setFilter('page', String(p))}
-                className={`size-10 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
-                  p === page ? 'bg-primary text-white' : 'bg-card-dark text-slate-300 border border-border-dark hover:border-primary/40'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+          <div className="flex justify-center items-center gap-2 mt-10">
+            <button
+              onClick={() => setFilter('page', String(Math.max(1, page - 1)))}
+              disabled={page === 1}
+              className="size-10 rounded-lg text-sm font-bold transition-colors cursor-pointer bg-card-dark text-slate-300 border border-border-dark hover:border-primary/40 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-base">chevron_left</span>
+            </button>
+            {(() => {
+              const window = 2;
+              const pages: (number | '...')[] = [];
+              if (page > window + 1) { pages.push(1); if (page > window + 2) pages.push('...'); }
+              for (let i = Math.max(1, page - window); i <= Math.min(totalPages, page + window); i++) pages.push(i);
+              if (page < totalPages - window) { if (page < totalPages - window - 1) pages.push('...'); pages.push(totalPages); }
+              return pages.map((p, idx) =>
+                p === '...' ? (
+                  <span key={`dots-${idx}`} className="text-slate-500 px-1">...</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setFilter('page', String(p))}
+                    className={`size-10 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
+                      p === page ? 'bg-primary text-white' : 'bg-card-dark text-slate-300 border border-border-dark hover:border-primary/40'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              );
+            })()}
+            <button
+              onClick={() => setFilter('page', String(Math.min(totalPages, page + 1)))}
+              disabled={page === totalPages}
+              className="size-10 rounded-lg text-sm font-bold transition-colors cursor-pointer bg-card-dark text-slate-300 border border-border-dark hover:border-primary/40 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-base">chevron_right</span>
+            </button>
           </div>
         )}
       </div>

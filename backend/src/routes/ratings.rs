@@ -36,12 +36,6 @@ pub async fn submit_rating(
         return Err(ApiError::bad_request("Can only rate completed tasks"));
     }
 
-    // Check rating window (7 days)
-    let days_since = (chrono::Utc::now() - task.updated_at).num_days();
-    if days_since > 7 {
-        return Err(ApiError::bad_request("Rating window has closed (7 days)"));
-    }
-
     // Determine who the ratee is
     let escrow = sqlx::query_as::<_, crate::models::escrow::Escrow>(
         "SELECT * FROM escrow WHERE task_id = $1"
@@ -50,6 +44,13 @@ pub async fn submit_rating(
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Check rating window (7 days from escrow release, not task update)
+    let completion_time = escrow.released_at.unwrap_or(task.updated_at);
+    let days_since = (chrono::Utc::now() - completion_time).num_days();
+    if days_since > 7 {
+        return Err(ApiError::bad_request("Rating window has closed (7 days)"));
+    }
 
     let ratee_id = if auth.user_id == task.buyer_id {
         escrow.seller_id

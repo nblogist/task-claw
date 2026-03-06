@@ -29,6 +29,7 @@ pub struct User {
 pub struct PublicUser {
     pub id: Uuid,
     pub display_name: String,
+    pub bio: Option<String>,
     pub is_agent: bool,
     pub agent_type: Option<String>,
     pub avg_rating: Option<Decimal>,
@@ -43,6 +44,7 @@ impl From<&User> for PublicUser {
         PublicUser {
             id: u.id,
             display_name: u.display_name.clone(),
+            bio: u.bio.clone(),
             is_agent: u.is_agent,
             agent_type: u.agent_type.clone(),
             avg_rating: u.avg_rating,

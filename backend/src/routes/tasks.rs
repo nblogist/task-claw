@@ -9,12 +9,46 @@ use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::task::*;
 use crate::models::user::{PublicUser, User};
+use crate::services::rate_limit::RateLimiter;
 use crate::services::task_lifecycle::can_transition;
 
 #[derive(serde::Serialize)]
 pub struct CategoryItem {
     pub name: String,
     pub task_count: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct TaskWithBuyerRow {
+    // Task fields
+    id: Uuid,
+    slug: String,
+    buyer_id: Uuid,
+    title: String,
+    description: String,
+    category: String,
+    tags: Vec<String>,
+    budget_min: rust_decimal::Decimal,
+    budget_max: rust_decimal::Decimal,
+    currency: String,
+    deadline: chrono::DateTime<chrono::Utc>,
+    status: TaskStatus,
+    accepted_bid_id: Option<Uuid>,
+    view_count: i32,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+    // Aggregated bid count
+    bid_count: i64,
+    // Buyer fields (nullable from LEFT JOIN)
+    buyer_uuid: Option<Uuid>,
+    buyer_display_name: Option<String>,
+    buyer_is_agent: Option<bool>,
+    buyer_agent_type: Option<String>,
+    buyer_avg_rating: Option<rust_decimal::Decimal>,
+    buyer_total_ratings: Option<i32>,
+    buyer_tasks_posted: Option<i32>,
+    buyer_tasks_completed: Option<i32>,
+    buyer_created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[rocket::get("/api/tasks?<status>&<category>&<min_budget>&<max_budget>&<currency>&<search>&<sort>&<page>&<per_page>")]
@@ -34,11 +68,7 @@ pub async fn list_tasks(
     let per_page = per_page.unwrap_or(20).clamp(1, 100);
     let offset = (page - 1) * per_page;
 
-    let mut where_clauses = vec!["1=1".to_string()];
-    let mut param_idx = 0u32;
-
-    // Build dynamic query with string concatenation
-    // We'll use a simpler approach with optional filters
+    // Build dynamic query with optional filters
     let status_filter = status.as_deref().unwrap_or("");
     let category_filter = category.as_deref().unwrap_or("");
     let currency_filter = currency.as_deref().unwrap_or("");
@@ -80,10 +110,18 @@ pub async fn list_tasks(
     let total = count_row;
     let total_pages = (total as f64 / per_page as f64).ceil() as i64;
 
-    // Main query
-    let rows = sqlx::query_as::<_, Task>(
+    // Main query with LEFT JOIN to eliminate N+1 (bid count + buyer in single query)
+    let rows = sqlx::query_as::<_, TaskWithBuyerRow>(
         &format!(
-            r#"SELECT t.* FROM tasks t
+            r#"SELECT t.*,
+                (SELECT COUNT(*) FROM bids WHERE task_id = t.id) AS bid_count,
+                u.id AS buyer_uuid, u.display_name AS buyer_display_name,
+                u.is_agent AS buyer_is_agent, u.agent_type AS buyer_agent_type,
+                u.avg_rating AS buyer_avg_rating,
+                u.total_ratings AS buyer_total_ratings, u.tasks_posted AS buyer_tasks_posted,
+                u.tasks_completed AS buyer_tasks_completed, u.created_at AS buyer_created_at
+            FROM tasks t
+            LEFT JOIN users u ON u.id = t.buyer_id
             WHERE ($1 = '' OR t.status::text = $1)
             AND ($2 = '' OR t.category = $2)
             AND ($3 = '' OR t.currency = $3)
@@ -107,43 +145,37 @@ pub async fn list_tasks(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    let mut tasks = Vec::new();
-    for task in &rows {
-        let bid_count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM bids WHERE task_id = $1"
-        )
-        .bind(task.id)
-        .fetch_one(pool.inner())
-        .await
-        .unwrap_or(0);
-
-        let buyer = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE id = $1"
-        )
-        .bind(task.buyer_id)
-        .fetch_optional(pool.inner())
-        .await
-        .ok()
-        .flatten()
-        .map(|u| PublicUser::from(&u));
-
-        tasks.push(TaskSummary {
-            id: task.id,
-            slug: task.slug.clone(),
-            title: task.title.clone(),
-            category: task.category.clone(),
-            tags: task.tags.clone(),
-            budget_min: task.budget_min,
-            budget_max: task.budget_max,
-            currency: task.currency.clone(),
-            deadline: task.deadline,
-            status: task.status.clone(),
-            view_count: task.view_count,
-            bid_count: Some(bid_count),
-            buyer,
-            created_at: task.created_at,
+    let tasks: Vec<TaskSummary> = rows.iter().map(|row| {
+        let buyer = row.buyer_uuid.map(|id| PublicUser {
+            id,
+            display_name: row.buyer_display_name.clone().unwrap_or_default(),
+            bio: None,
+            is_agent: row.buyer_is_agent.unwrap_or(false),
+            agent_type: row.buyer_agent_type.clone(),
+            avg_rating: row.buyer_avg_rating,
+            total_ratings: row.buyer_total_ratings.unwrap_or(0),
+            tasks_posted: row.buyer_tasks_posted.unwrap_or(0),
+            tasks_completed: row.buyer_tasks_completed.unwrap_or(0),
+            member_since: row.buyer_created_at.unwrap_or_default(),
         });
-    }
+
+        TaskSummary {
+            id: row.id,
+            slug: row.slug.clone(),
+            title: row.title.clone(),
+            category: row.category.clone(),
+            tags: row.tags.clone(),
+            budget_min: row.budget_min,
+            budget_max: row.budget_max,
+            currency: row.currency.clone(),
+            deadline: row.deadline,
+            status: row.status.clone(),
+            view_count: row.view_count,
+            bid_count: Some(row.bid_count),
+            buyer,
+            created_at: row.created_at,
+        }
+    }).collect();
 
     Ok(Json(TaskListResponse {
         tasks,
@@ -157,19 +189,29 @@ pub async fn list_tasks(
 #[rocket::get("/api/tasks/<slug>")]
 pub async fn get_task(
     pool: &State<PgPool>,
+    auth: Option<AuthUser>,
     slug: &str,
 ) -> Result<Json<TaskDetail>, (Status, Json<ApiError>)> {
-    // Increment view count and fetch
+    // Fetch task
     let mut task = sqlx::query_as::<_, Task>(
-        r#"UPDATE tasks SET view_count = view_count + 1
-           WHERE slug = $1
-           RETURNING *"#,
+        "SELECT * FROM tasks WHERE slug = $1",
     )
     .bind(slug)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?
     .ok_or_else(|| ApiError::not_found("Task not found"))?;
+
+    // Increment view count only if not the task owner (GAP-22)
+    let is_owner = auth.as_ref().map_or(false, |a| a.user_id == task.buyer_id);
+    if !is_owner {
+        sqlx::query("UPDATE tasks SET view_count = view_count + 1 WHERE id = $1")
+            .bind(task.id)
+            .execute(pool.inner())
+            .await
+            .ok();
+        task.view_count += 1;
+    }
 
     // Lazy deadline check: auto-expire open/bidding tasks past deadline
     if matches!(task.status, TaskStatus::Open | TaskStatus::Bidding) && task.deadline < chrono::Utc::now() {
@@ -209,22 +251,23 @@ pub async fn get_task(
 pub async fn list_categories(
     pool: &State<PgPool>,
 ) -> Result<Json<Vec<CategoryItem>>, (Status, Json<ApiError>)> {
-    let mut result = Vec::new();
+    // Single GROUP BY query instead of N separate COUNT queries
+    let rows = sqlx::query_as::<_, (String, i64)>(
+        "SELECT category, COUNT(*) FROM tasks GROUP BY category"
+    )
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    for cat in CATEGORIES {
-        let count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM tasks WHERE category = $1"
-        )
-        .bind(cat)
-        .fetch_one(pool.inner())
-        .await
-        .unwrap_or(0);
+    let counts: std::collections::HashMap<String, i64> = rows.into_iter().collect();
 
-        result.push(CategoryItem {
+    let result: Vec<CategoryItem> = CATEGORIES
+        .iter()
+        .map(|cat| CategoryItem {
             name: cat.to_string(),
-            task_count: count,
-        });
-    }
+            task_count: *counts.get(*cat).unwrap_or(&0),
+        })
+        .collect();
 
     Ok(Json(result))
 }
@@ -232,9 +275,13 @@ pub async fn list_categories(
 #[rocket::post("/api/tasks", data = "<body>")]
 pub async fn create_task(
     pool: &State<PgPool>,
+    limiter: &State<RateLimiter>,
     auth: AuthUser,
     body: Json<CreateTaskRequest>,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
+    if !limiter.check(&format!("create_task:{}", auth.user_id)) {
+        return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
+    }
     let body = body.into_inner();
 
     // Validate
@@ -257,32 +304,13 @@ pub async fn create_task(
         return Err(ApiError::bad_request("Deadline must be in the future"));
     }
 
-    // Generate unique slug
+    // Generate race-condition-safe slug with UUID suffix
     let base_slug = slug::slugify(&body.title);
-    let mut task_slug = base_slug.clone();
-    let mut attempt = 0;
-    loop {
-        let exists = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM tasks WHERE slug = $1"
-        )
-        .bind(&task_slug)
-        .fetch_one(pool.inner())
-        .await
-        .unwrap_or(0);
+    let short_id = &Uuid::new_v4().to_string()[..8];
+    let task_slug = format!("{}-{}", base_slug, short_id);
 
-        if exists == 0 {
-            break;
-        }
-        attempt += 1;
-        task_slug = format!("{}-{}", base_slug, attempt);
-    }
-
-    // Increment tasks_posted
-    sqlx::query("UPDATE users SET tasks_posted = tasks_posted + 1 WHERE id = $1")
-        .bind(auth.user_id)
-        .execute(pool.inner())
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+    // Wrap insert + tasks_posted in a transaction (C5 fix)
+    let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     let task = sqlx::query_as::<_, Task>(
         r#"INSERT INTO tasks (slug, buyer_id, title, description, category, tags, budget_min, budget_max, currency, deadline)
@@ -299,9 +327,18 @@ pub async fn create_task(
     .bind(body.budget_max)
     .bind(&body.currency)
     .bind(body.deadline)
-    .fetch_one(pool.inner())
+    .fetch_one(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Increment tasks_posted AFTER successful insert, inside transaction
+    sqlx::query("UPDATE users SET tasks_posted = tasks_posted + 1 WHERE id = $1")
+        .bind(auth.user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(task))
 }
