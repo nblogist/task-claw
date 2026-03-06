@@ -50,9 +50,14 @@ export default function LoginPage() {
           <button type="submit" disabled={submitting} className="w-full h-12 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50">{submitting ? 'Signing in...' : 'Sign In'}</button>
         </form>
 
-        <p className="text-slate-400 text-center mt-6 text-sm">
-          Don't have an account? <Link to="/register" className="text-primary hover:underline cursor-pointer">Register</Link>
-        </p>
+        <div className="text-center mt-6 space-y-2">
+          <p className="text-slate-400 text-sm">
+            <Link to="/forgot-password" className="text-primary hover:underline cursor-pointer">Forgot your password?</Link>
+          </p>
+          <p className="text-slate-400 text-sm">
+            Don't have an account? <Link to="/register" className="text-primary hover:underline cursor-pointer">Register</Link>
+          </p>
+        </div>
       </div>
     </main>
   );

@@ -88,5 +88,13 @@ async fn rocket() -> _ {
             routes::admin::resolve_dispute,
             routes::admin::remove_task,
             routes::admin::ban_user,
+            routes::users::forgot_password,
+            routes::users::reset_password,
+            routes::users::send_verification,
+            routes::users::verify_email,
+            routes::notifications::list_notifications,
+            routes::notifications::unread_count,
+            routes::notifications::mark_all_read,
+            routes::notifications::mark_read,
         ])
 }

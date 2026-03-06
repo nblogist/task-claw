@@ -5,3 +5,4 @@ pub mod delivery;
 pub mod escrow;
 pub mod rating;
 pub mod dispute;
+pub mod notification;

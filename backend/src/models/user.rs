@@ -21,6 +21,7 @@ pub struct User {
     pub spend_limit_per_task: Option<Decimal>,
     pub spend_limit_per_day: Option<Decimal>,
     pub is_banned: bool,
+    pub email_verified: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

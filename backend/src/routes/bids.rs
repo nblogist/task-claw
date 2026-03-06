@@ -12,6 +12,7 @@ use crate::models::task::{Task, TaskStatus};
 use crate::models::user::{PublicUser, User};
 use crate::services::rate_limit::RateLimiter;
 use crate::services::task_lifecycle::can_transition;
+use crate::routes::notifications::create_notification;
 
 #[derive(Debug, sqlx::FromRow)]
 struct BidWithSellerRow {
@@ -199,6 +200,9 @@ pub async fn create_bid(
 
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
+    // Notify buyer about new bid
+    create_notification(pool.inner(), task.buyer_id, "bid_received", &format!("New bid received on \"{}\"", task.title), Some(task.id)).await;
+
     Ok(Json(bid))
 }
 
@@ -317,6 +321,9 @@ pub async fn accept_bid(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Notify seller their bid was accepted
+    create_notification(pool.inner(), bid.seller_id, "bid_accepted", &format!("Your bid on \"{}\" was accepted!", task.title), Some(task.id)).await;
 
     Ok(Json(escrow))
 }

@@ -4,12 +4,24 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use chrono::{Duration, Utc};
+use rand::Rng;
+
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::user::*;
 use crate::services::auth::{create_token, hash_password, verify_password};
+use crate::services::email::EmailService;
 use crate::services::rate_limit::RateLimiter;
 use serde_json::json;
+
+fn generate_token() -> String {
+    let mut rng = rand::thread_rng();
+    (0..48).map(|_| {
+        let idx = rng.gen_range(0..36u8);
+        if idx < 10 { (b'0' + idx) as char } else { (b'a' + idx - 10) as char }
+    }).collect()
+}
 
 #[derive(serde::Serialize)]
 pub struct AgentCountResponse {
@@ -78,6 +90,30 @@ pub async fn register(
 
     let token = create_token(user.id, &user.email, user.is_agent)
         .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Send verification email asynchronously
+    let verify_token = generate_token();
+    let expires = Utc::now() + Duration::hours(24);
+    let _ = sqlx::query(
+        "INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)"
+    )
+    .bind(user.id)
+    .bind(&verify_token)
+    .bind(expires)
+    .execute(pool.inner())
+    .await;
+
+    let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    if let Some(mailer) = EmailService::new() {
+        let email_addr = user.email.clone();
+        let vt = verify_token;
+        let fu = frontend_url;
+        tokio::spawn(async move {
+            if let Err(e) = mailer.send_verification(&email_addr, &vt, &fu).await {
+                eprintln!("[WARN] Failed to send verification email: {}", e);
+            }
+        });
+    }
 
     let api_key = if user.is_agent { user.api_key } else { None };
 
@@ -314,4 +350,210 @@ pub async fn delete_account(
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(json!({"message": "Account deleted"})))
+}
+
+// ── Password Reset ──────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct ForgotPasswordRequest {
+    pub email: String,
+}
+
+#[rocket::post("/api/auth/forgot-password", data = "<body>")]
+pub async fn forgot_password(
+    pool: &State<PgPool>,
+    limiter: &State<RateLimiter>,
+    body: Json<ForgotPasswordRequest>,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    if !limiter.check(&format!("forgot:{}", body.email)) {
+        return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
+    }
+
+    let email = body.into_inner().email;
+    let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+
+    // Always return success to prevent email enumeration
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = $1")
+        .bind(&email)
+        .fetch_optional(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    if let Some(user) = user {
+        let token = generate_token();
+        let expires = Utc::now() + Duration::hours(1);
+
+        sqlx::query(
+            "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)"
+        )
+        .bind(user.id)
+        .bind(&token)
+        .bind(expires)
+        .execute(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        if let Some(mailer) = EmailService::new() {
+            if let Err(e) = mailer.send_password_reset(&email, &token, &frontend_url).await {
+                eprintln!("[WARN] Failed to send password reset email: {}", e);
+            }
+        } else {
+            eprintln!("[WARN] RESEND_API_KEY not set — password reset token: {}", token);
+        }
+    }
+
+    Ok(Json(json!({"message": "If that email exists, a reset link has been sent."})))
+}
+
+#[derive(serde::Deserialize)]
+pub struct ResetPasswordRequest {
+    pub token: String,
+    pub new_password: String,
+}
+
+#[rocket::post("/api/auth/reset-password", data = "<body>")]
+pub async fn reset_password(
+    pool: &State<PgPool>,
+    limiter: &State<RateLimiter>,
+    body: Json<ResetPasswordRequest>,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    if !limiter.check("reset:global") {
+        return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
+    }
+
+    let body = body.into_inner();
+
+    if body.new_password.len() < 8 {
+        return Err(ApiError::bad_request("Password must be at least 8 characters"));
+    }
+
+    let row = sqlx::query_as::<_, (Uuid, Uuid, bool, chrono::DateTime<Utc>)>(
+        "SELECT id, user_id, used, expires_at FROM password_reset_tokens WHERE token = $1"
+    )
+    .bind(&body.token)
+    .fetch_optional(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?
+    .ok_or_else(|| ApiError::bad_request("Invalid or expired token"))?;
+
+    let (token_id, user_id, used, expires_at) = row;
+
+    if used || expires_at < Utc::now() {
+        return Err(ApiError::bad_request("Invalid or expired token"));
+    }
+
+    let password_hash = hash_password(&body.new_password)
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    sqlx::query("UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2")
+        .bind(&password_hash)
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    sqlx::query("UPDATE password_reset_tokens SET used = true WHERE id = $1")
+        .bind(token_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(json!({"message": "Password has been reset successfully."})))
+}
+
+// ── Email Verification ──────────────────────────────────────────────
+
+#[rocket::post("/api/auth/send-verification")]
+pub async fn send_verification(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    limiter: &State<RateLimiter>,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    if !limiter.check(&format!("verify:{}", auth.user_id)) {
+        return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
+    }
+
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        .bind(auth.user_id)
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    if user.email_verified {
+        return Err(ApiError::bad_request("Email already verified"));
+    }
+
+    let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let token = generate_token();
+    let expires = Utc::now() + Duration::hours(24);
+
+    sqlx::query(
+        "INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)"
+    )
+    .bind(auth.user_id)
+    .bind(&token)
+    .bind(expires)
+    .execute(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    if let Some(mailer) = EmailService::new() {
+        if let Err(e) = mailer.send_verification(&user.email, &token, &frontend_url).await {
+            eprintln!("[WARN] Failed to send verification email: {}", e);
+        }
+    } else {
+        eprintln!("[WARN] RESEND_API_KEY not set — verification token: {}", token);
+    }
+
+    Ok(Json(json!({"message": "Verification email sent."})))
+}
+
+#[derive(serde::Deserialize)]
+pub struct VerifyEmailRequest {
+    pub token: String,
+}
+
+#[rocket::post("/api/auth/verify-email", data = "<body>")]
+pub async fn verify_email(
+    pool: &State<PgPool>,
+    body: Json<VerifyEmailRequest>,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    let body = body.into_inner();
+
+    let row = sqlx::query_as::<_, (Uuid, Uuid, bool, chrono::DateTime<Utc>)>(
+        "SELECT id, user_id, used, expires_at FROM email_verification_tokens WHERE token = $1"
+    )
+    .bind(&body.token)
+    .fetch_optional(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?
+    .ok_or_else(|| ApiError::bad_request("Invalid or expired token"))?;
+
+    let (token_id, user_id, used, expires_at) = row;
+
+    if used || expires_at < Utc::now() {
+        return Err(ApiError::bad_request("Invalid or expired token"));
+    }
+
+    let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    sqlx::query("UPDATE users SET email_verified = true, updated_at = now() WHERE id = $1")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    sqlx::query("UPDATE email_verification_tokens SET used = true WHERE id = $1")
+        .bind(token_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(json!({"message": "Email verified successfully."})))
 }

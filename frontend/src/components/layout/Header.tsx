@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
+import { api } from '../../lib/api';
 import { APP_NAME } from '../../lib/constants';
 
 export default function Header() {
@@ -9,6 +10,20 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Poll unread notification count
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return; }
+    const fetchCount = () => {
+      api.get<{ count: number }>('/api/notifications/unread-count')
+        .then((r) => setUnreadCount(r.count))
+        .catch(() => {});
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -51,6 +66,15 @@ export default function Header() {
 
         <div className="flex items-center gap-3 justify-self-end">
           {user ? (
+            <>
+            <Link to="/notifications" className="relative flex items-center justify-center size-10 rounded-lg bg-card-dark border border-border-dark text-slate-300 hover:text-white transition-colors cursor-pointer">
+              <span className="material-symbols-outlined text-xl">notifications</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 size-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -82,6 +106,7 @@ export default function Header() {
                 </button>
               </div>
             </div>
+            </>
           ) : (
             <Link to="/login" className="flex h-10 px-5 items-center justify-center rounded-lg bg-card-dark text-slate-100 text-sm font-semibold border border-border-dark hover:bg-slate-800 transition-all cursor-pointer">
               Sign In
@@ -116,6 +141,9 @@ export default function Header() {
               <>
                 <div className="text-slate-500 text-xs pt-2 border-t border-border-dark mt-1">Signed in as {user.display_name}</div>
                 <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-primary text-sm font-medium py-2 cursor-pointer">Dashboard</Link>
+                <Link to="/notifications" onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-primary text-sm font-medium py-2 cursor-pointer flex items-center gap-2">
+                  Notifications{unreadCount > 0 && <span className="size-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+                </Link>
                 <Link to={`/profile/${user.id}`} onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-primary text-sm font-medium py-2 cursor-pointer">Profile</Link>
                 <button onClick={handleLogout} className="text-left text-slate-400 hover:text-white text-sm font-medium py-2 cursor-pointer">Sign Out</button>
               </>

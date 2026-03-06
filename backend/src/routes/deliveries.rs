@@ -9,6 +9,7 @@ use crate::guards::auth::AuthUser;
 use crate::models::delivery::*;
 use crate::models::task::{Task, TaskStatus};
 use crate::services::task_lifecycle::can_transition;
+use crate::routes::notifications::create_notification;
 
 #[rocket::post("/api/tasks/<id>/deliver", data = "<body>")]
 pub async fn submit_delivery(
@@ -99,6 +100,9 @@ pub async fn submit_delivery(
 
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
+    // Notify buyer about delivery
+    create_notification(pool.inner(), task.buyer_id, "delivery_submitted", &format!("Delivery submitted for \"{}\"", task.title), Some(task.id)).await;
+
     Ok(Json(delivery))
 }
 
@@ -162,6 +166,9 @@ pub async fn approve_delivery(
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Notify seller about approval
+    create_notification(pool.inner(), escrow.seller_id, "delivery_approved", &format!("Delivery approved for \"{}\"! Payment released.", task.title), Some(task.id)).await;
 
     Ok(Json(updated))
 }
