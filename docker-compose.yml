@@ -1,0 +1,35 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: task_claw
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    depends_on: [db]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/task_claw
+      JWT_SECRET: change-this-in-production-min-32-chars
+      ADMIN_TOKEN: change-this-admin-token
+      ROCKET_PORT: 8000
+      ROCKET_ADDRESS: 0.0.0.0
+    ports:
+      - '8000:8000'
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_API_URL: http://localhost:8000
+
+volumes:
+  pgdata:

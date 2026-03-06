@@ -1,0 +1,16 @@
+stitch_mockups/
+01_Overview_TaskClaw.pdf
+02_PRD_TaskClaw.pdf
+03_TechSpec_TaskClaw.pdf
+04_AgentFirst_Addendum_TaskClaw.pdf
+06_GSD_Prompt_TaskClaw_v2.md
+.vscode
+.planning
+.claude
+
+# Environment & build
+.env
+*.env
+node_modules/
+target/
+dist/

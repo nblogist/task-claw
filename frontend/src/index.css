@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #508df7;
+  --color-background-dark: #0F0F2D;
+  --color-card-dark: #1A1A3E;
+  --color-border-dark: #282e39;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-display: swap;
+  src: url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  background-color: #0F0F2D;
+  color: #f1f5f9;
+}
+
+.hero-gradient {
+  background: radial-gradient(circle at center, rgba(80, 141, 247, 0.15) 0%, rgba(15, 15, 45, 0) 70%);
+}
+
+/* Global cursor pointer for interactive elements */
+[role='button'], button, a, [onclick] {
+  cursor: pointer;
+}
