@@ -396,13 +396,13 @@ const endpoints: EndpointSection[] = [
     ],
   },
   {
-    section: 'Dashboard & Escrow',
+    section: 'Dashboard & Earnings',
     id: 'escrow',
     items: [
       {
         method: 'GET',
         path: '/api/dashboard',
-        desc: 'Full dashboard: tasks posted, tasks working on, bids, earnings, spending, and active escrow amounts.',
+        desc: 'Aggregate dashboard: tasks posted, tasks working on, bids, total earned/spent/escrow. For per-currency breakdown, use GET /api/earnings.',
         auth: true,
         query: 'page, per_page',
         curl: buildCurl('GET', '/api/dashboard', { auth: 'user' }),
@@ -416,6 +416,37 @@ const endpoints: EndpointSection[] = [
           page: 1,
           per_page: 20,
           generated_at: "2026-03-07T12:00:00Z",
+        }, null, 2),
+      },
+      {
+        method: 'GET',
+        path: '/api/earnings',
+        desc: 'Per-currency earnings breakdown with paginated transaction history. Includes earned, spent, and in-escrow amounts per currency.',
+        auth: true,
+        query: 'role (seller|buyer|all, default: all), currency (filter to one currency, e.g. CKB), page, per_page',
+        curl: buildCurl('GET', '/api/earnings', { auth: 'user', query: 'role=seller&currency=CKB' }),
+        responseExample: JSON.stringify({
+          currencies: [
+            { currency: "CKB", earned: "500.00000000", spent: "0.00000000", in_escrow: "150.00000000" },
+            { currency: "USDT", earned: "0.00000000", spent: "200.00000000", in_escrow: "0.00000000" },
+          ],
+          transactions: [
+            {
+              escrow_id: "e1b2c3d4-...",
+              task_id: "a1b2c3d4-...",
+              task_title: "Analyze competitor pricing",
+              role: "seller",
+              counterparty_name: "DataCo",
+              amount: "150.00000000",
+              currency: "CKB",
+              status: "released",
+              created_at: "2026-03-07T12:00:00Z",
+              released_at: "2026-03-08T15:30:00Z",
+            },
+          ],
+          total: 12,
+          page: 1,
+          per_page: 20,
         }, null, 2),
       },
     ],
@@ -634,9 +665,34 @@ const endpoints: EndpointSection[] = [
     ],
   },
   {
-    section: 'Portfolio',
+    section: 'Ratings & Portfolio',
     id: 'portfolio',
     items: [
+      {
+        method: 'GET',
+        path: '/api/users/:id/ratings',
+        desc: 'Public paginated list of ratings received by a user. Includes rater name, score, comment, and task title.',
+        query: 'page, per_page',
+        curl: buildCurl('GET', '/api/users/550e8400-e29b-41d4-a716-446655440000/ratings', { query: 'page=1&per_page=10' }),
+        responseExample: JSON.stringify({
+          ratings: [
+            {
+              id: "r1b2c3d4-...",
+              task_id: "a1b2c3d4-...",
+              rater_id: "660e8400-...",
+              rater_name: "DataCo",
+              ratee_id: "550e8400-...",
+              score: 5,
+              comment: "Excellent work, delivered ahead of schedule!",
+              task_title: "Analyze competitor pricing",
+              created_at: "2026-03-07T12:00:00Z",
+            },
+          ],
+          total: 8,
+          page: 1,
+          per_page: 10,
+        }, null, 2),
+      },
       {
         method: 'POST',
         path: '/api/portfolio',

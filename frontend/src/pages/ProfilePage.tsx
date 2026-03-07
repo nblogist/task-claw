@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { handleApiError } from '../lib/handleApiError';
-import type { PublicUser } from '../lib/types';
+import type { PublicUser, PortfolioItemWithRating, PortfolioListResponse, RatingWithContext, RatingListResponse } from '../lib/types';
 import Expand from '../components/ui/Expand';
 import { formatDate } from '../lib/dates';
 
@@ -21,11 +21,25 @@ export default function ProfilePage() {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
+  // Reviews
+  const [reviews, setReviews] = useState<RatingWithContext[]>([]);
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+
+  // Portfolio
+  const [portfolio, setPortfolio] = useState<PortfolioItemWithRating[]>([]);
+  const [showAddPortfolio, setShowAddPortfolio] = useState(false);
+  const [pTitle, setPTitle] = useState('');
+  const [pDesc, setPDesc] = useState('');
+  const [pUrl, setPUrl] = useState('');
+  const [pError, setPError] = useState('');
+
   const isOwnProfile = authUser && id === authUser.id;
 
   useEffect(() => {
     if (id) {
       api.get<PublicUser>(`/api/users/${id}`).then(setUser).catch(handleApiError);
+      api.get<PortfolioListResponse>(`/api/users/${id}/portfolio`).then(r => setPortfolio(r.items)).catch(() => {});
+      api.get<RatingListResponse>(`/api/users/${id}/ratings`).then(r => { setReviews(r.ratings); setReviewsTotal(r.total); }).catch(() => {});
     }
   }, [id]);
 
@@ -50,6 +64,28 @@ export default function ProfilePage() {
       logout();
       navigate('/');
     } catch (e: any) { setDeleteError(e.message); }
+  };
+
+  const handleAddPortfolio = async () => {
+    setPError('');
+    if (!pTitle.trim()) { setPError('Title is required'); return; }
+    try {
+      await api.post('/api/portfolio', { title: pTitle, description: pDesc, url: pUrl || null });
+      setPTitle(''); setPDesc(''); setPUrl('');
+      setShowAddPortfolio(false);
+      toast.success('Portfolio item added');
+      const r = await api.get<PortfolioListResponse>(`/api/users/${id}/portfolio`);
+      setPortfolio(r.items);
+    } catch (e: any) { setPError(e.message); }
+  };
+
+  const handleDeletePortfolio = async (itemId: string) => {
+    if (!window.confirm('Delete this portfolio item?')) return;
+    try {
+      await api.del(`/api/portfolio/${itemId}`);
+      setPortfolio(prev => prev.filter(p => p.id !== itemId));
+      toast.success('Portfolio item deleted');
+    } catch (e: any) { handleApiError(e); }
   };
 
   if (!user) return (
@@ -147,6 +183,81 @@ export default function ProfilePage() {
                 </div>
               </Expand>
             </>
+          )}
+
+          {/* Reviews */}
+          {reviews.length > 0 && (
+            <div className="mt-8 border-t border-border-dark pt-6">
+              <h2 className="text-white text-lg font-bold mb-4">Reviews ({reviewsTotal})</h2>
+              <div className="space-y-3">
+                {reviews.map((r) => (
+                  <div key={r.id} className="bg-background-dark rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-yellow-400 text-sm">{'★'.repeat(r.score)}{'☆'.repeat(5 - r.score)}</span>
+                        <span className="text-white text-sm font-semibold">{r.rater_name}</span>
+                      </div>
+                      <span className="text-slate-500 text-xs">{formatDate(r.created_at)}</span>
+                    </div>
+                    {r.comment && <p className="text-slate-300 text-sm">{r.comment}</p>}
+                    <p className="text-slate-500 text-xs mt-1">Task: {r.task_title}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Portfolio */}
+          {(portfolio.length > 0 || isOwnProfile) && (
+            <div className="mt-8 border-t border-border-dark pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-white text-lg font-bold">Portfolio</h2>
+                {isOwnProfile && (
+                  <button
+                    onClick={() => setShowAddPortfolio(!showAddPortfolio)}
+                    className="h-8 px-4 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary/20 cursor-pointer"
+                  >
+                    {showAddPortfolio ? 'Cancel' : '+ Add Item'}
+                  </button>
+                )}
+              </div>
+              <Expand open={showAddPortfolio}>
+                <div className="bg-background-dark rounded-xl p-4 mb-4 space-y-3">
+                  {pError && <p className="text-red-400 text-sm">{pError}</p>}
+                  <input type="text" value={pTitle} onChange={e => setPTitle(e.target.value)} placeholder="Title" maxLength={120} className="w-full h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" />
+                  <textarea value={pDesc} onChange={e => setPDesc(e.target.value)} placeholder="Description (optional)" maxLength={2000} className="w-full h-20 px-3 py-2 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none" />
+                  <input type="url" value={pUrl} onChange={e => setPUrl(e.target.value)} placeholder="URL (optional)" className="w-full h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" />
+                  <button onClick={handleAddPortfolio} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Save</button>
+                </div>
+              </Expand>
+              {portfolio.length === 0 ? (
+                <p className="text-slate-400 text-sm">No portfolio items yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {portfolio.map((item) => (
+                    <div key={item.id} className="bg-background-dark rounded-xl p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-white font-semibold">{item.title}</p>
+                          {item.description && <p className="text-slate-400 text-sm mt-1">{item.description}</p>}
+                          {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary text-sm hover:underline cursor-pointer">{item.url}</a>}
+                          <div className="flex gap-3 mt-2 text-xs text-slate-500">
+                            {item.task_title && <span>Task: {item.task_title}</span>}
+                            {item.task_rating != null && <span className="text-yellow-400">{'★'.repeat(Math.round(Number(item.task_rating)))}</span>}
+                            <span>{formatDate(item.created_at)}</span>
+                          </div>
+                        </div>
+                        {isOwnProfile && (
+                          <button onClick={() => handleDeletePortfolio(item.id)} className="text-slate-500 hover:text-red-400 cursor-pointer flex-shrink-0">
+                            <span className="material-symbols-outlined text-base">delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {isOwnProfile && !editing && (

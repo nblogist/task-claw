@@ -42,6 +42,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminDisputesPage from './pages/admin/AdminDisputesPage';
 import AdminTasksPage from './pages/admin/AdminTasksPage';
+import RequireAuth from './components/RequireAuth';
 
 function AppContent() {
   const { loadUser, token } = useAuth();
@@ -66,7 +67,7 @@ function AppContent() {
           <Route path="/tasks" element={<BrowsePage />} />
           <Route path="/tasks/:slug" element={<TaskDetailPage />} />
           <Route path="/post" element={<PostTaskPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="/profile/:id" element={<ProfilePage />} />
           <Route path="/api-docs" element={<ApiDocsPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -74,7 +75,7 @@ function AppContent() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />

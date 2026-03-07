@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import type { Task, Bid, Delivery } from '../lib/types';
+import type { Task, Bid, Delivery, MessageWithSender, MessageListResponse } from '../lib/types';
 import StatusBadge from '../components/StatusBadge';
 import { formatDate } from '../lib/dates';
 import Expand from '../components/ui/Expand';
@@ -44,6 +44,25 @@ export default function TaskDetailPage() {
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
 
+  // Task edit
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editBudgetMin, setEditBudgetMin] = useState('');
+  const [editBudgetMax, setEditBudgetMax] = useState('');
+
+  // Bid edit
+  const [editingBidId, setEditingBidId] = useState<string | null>(null);
+  const [editBidPrice, setEditBidPrice] = useState('');
+  const [editBidDays, setEditBidDays] = useState('');
+  const [editBidPitch, setEditBidPitch] = useState('');
+
+  // Messages
+  const [messages, setMessages] = useState<MessageWithSender[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -67,6 +86,30 @@ export default function TaskDetailPage() {
   };
 
   useEffect(() => { fetchTask(); }, [slug]);
+
+  const fetchMessages = async () => {
+    if (!task) return;
+    try {
+      const res = await api.get<MessageListResponse>(`/api/tasks/${task.id}/messages?per_page=100`);
+      setMessages(res.messages);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch { /* not a participant or no messages */ }
+  };
+
+  useEffect(() => {
+    if (task && messagesOpen) fetchMessages();
+  }, [task?.id, messagesOpen]);
+
+  const handleSendMessage = async () => {
+    if (!task || !newMessage.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await api.post(`/api/tasks/${task.id}/messages`, { content: newMessage.trim() });
+      setNewMessage('');
+      await fetchMessages();
+    } catch (e: any) { setError(e.message); }
+    finally { setSubmitting(false); }
+  };
 
   const isBuyer = user && task && user.id === task.buyer_id;
   const isAcceptedSeller = user && task && bids.some(b => b.seller_id === user.id && b.status === 'accepted');
@@ -174,6 +217,59 @@ export default function TaskDetailPage() {
     } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
   };
 
+  const handleEditTask = async () => {
+    if (!task || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
+    try {
+      const body: Record<string, unknown> = {};
+      if (editTitle.trim() && editTitle !== task.title) body.title = editTitle;
+      if (editDescription.trim() && editDescription !== task.description) body.description = editDescription;
+      if (editBudgetMin && parseFloat(editBudgetMin) !== parseFloat(String(task.budget_min))) body.budget_min = parseFloat(editBudgetMin);
+      if (editBudgetMax && parseFloat(editBudgetMax) !== parseFloat(String(task.budget_max))) body.budget_max = parseFloat(editBudgetMax);
+      await api.put(`/api/tasks/${task.id}`, body);
+      setSuccess('Task updated.');
+      setShowEditForm(false);
+      fetchTask();
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
+  };
+
+  const handleCancelTask = async () => {
+    if (!task || submitting) return;
+    if (!window.confirm('Are you sure you want to cancel this task? All bidders will be notified.')) return;
+    setError(''); setSuccess(''); setSubmitting(true);
+    try {
+      await api.del(`/api/tasks/${task.id}`);
+      setSuccess('Task cancelled.');
+      fetchTask();
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
+  };
+
+  const handleEditBid = async (bidId: string) => {
+    if (!task || submitting) return;
+    setError(''); setSuccess(''); setSubmitting(true);
+    try {
+      await api.put(`/api/tasks/${task.id}/bids/${bidId}`, {
+        price: parseFloat(editBidPrice),
+        estimated_delivery_days: parseInt(editBidDays),
+        pitch: editBidPitch,
+      });
+      setSuccess('Bid updated.');
+      setEditingBidId(null);
+      fetchTask();
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
+  };
+
+  const handleRejectBid = async (bidId: string) => {
+    if (!task || submitting) return;
+    if (!window.confirm('Reject this bid?')) return;
+    setError(''); setSuccess(''); setSubmitting(true);
+    try {
+      await api.post(`/api/tasks/${task.id}/bids/${bidId}/reject`);
+      setSuccess('Bid rejected.');
+      fetchTask();
+    } catch (e: any) { setError(e.message); } finally { setSubmitting(false); }
+  };
+
   if (loading) return (
     <main className="flex-1 px-4 sm:px-6 md:px-20 py-10">
       <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
@@ -215,10 +311,53 @@ export default function TaskDetailPage() {
             {task.buyer?.is_agent && (
               <span className="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase">Agent Compatible</span>
             )}
+            {task.priority && task.priority !== 'normal' && (
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                task.priority === 'urgent' ? 'bg-red-500/20 text-red-400' :
+                task.priority === 'high' ? 'bg-orange-500/20 text-orange-400' :
+                'bg-slate-500/20 text-slate-400'
+              }`}>{task.priority}</span>
+            )}
             <span className="text-slate-500 text-sm">{task.view_count} views</span>
           </div>
 
-          <h1 className="text-white text-3xl font-bold mb-4">{task.title}</h1>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <h1 className="text-white text-3xl font-bold">{task.title}</h1>
+            {isBuyer && (statusStr === 'open' || statusStr === 'bidding') && (
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => { setEditTitle(task.title); setEditDescription(task.description); setEditBudgetMin(String(task.budget_min)); setEditBudgetMax(String(task.budget_max)); setShowEditForm(!showEditForm); }}
+                  className="h-9 px-4 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={handleCancelTask}
+                  disabled={submitting}
+                  className="h-9 px-4 bg-red-600/10 text-red-400 border border-red-600/20 rounded-lg text-xs font-bold hover:bg-red-600/20 cursor-pointer disabled:opacity-50"
+                >
+                  Cancel Task
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Edit Task Form */}
+          <Expand open={showEditForm}>
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-6 space-y-4 animate-fade-in">
+              <h3 className="text-white font-bold">Edit Task</h3>
+              <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} maxLength={120} className="w-full h-10 px-3 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Title" />
+              <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} maxLength={2000} className="w-full h-24 px-3 py-2 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Description" />
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" value={editBudgetMin} onChange={e => setEditBudgetMin(e.target.value)} className="h-10 px-3 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Min budget" />
+                <input type="number" value={editBudgetMax} onChange={e => setEditBudgetMax(e.target.value)} className="h-10 px-3 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Max budget" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleEditTask} disabled={submitting} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50">Save</button>
+                <button onClick={() => setShowEditForm(false)} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+              </div>
+            </div>
+          </Expand>
 
           <div className="flex flex-wrap gap-2 mb-6">
             <span className="px-3 py-1 rounded-lg bg-card-dark border border-border-dark text-slate-300 text-xs font-medium">{task.category}</span>
@@ -230,6 +369,21 @@ export default function TaskDetailPage() {
           <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
             <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">{task.description}</p>
           </div>
+
+          {/* Specifications */}
+          {task.specifications && Object.keys(task.specifications).length > 0 && (
+            <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8">
+              <h3 className="text-white font-bold mb-3">Specifications</h3>
+              <div className="space-y-2">
+                {Object.entries(task.specifications).map(([key, value]) => (
+                  <div key={key} className="flex gap-3 text-sm">
+                    <span className="text-slate-400 font-medium min-w-[120px]">{key}:</span>
+                    <span className="text-slate-200">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Escrow Label */}
           {(statusStr === 'in_escrow') && (
@@ -353,6 +507,57 @@ export default function TaskDetailPage() {
             </div>
           )}
 
+          {/* Messages */}
+          {user && (isBuyer || isAcceptedSeller || (canBid && alreadyBid)) && (
+            <div className="mb-8">
+              <button
+                onClick={() => setMessagesOpen(!messagesOpen)}
+                className="flex items-center gap-2 text-white text-xl font-bold mb-4 cursor-pointer hover:text-primary transition-colors"
+              >
+                <span className="material-symbols-outlined text-xl">{messagesOpen ? 'expand_less' : 'chat'}</span>
+                Messages {messages.length > 0 && `(${messages.length})`}
+              </button>
+              <Expand open={messagesOpen}>
+                <div className="bg-card-dark rounded-2xl border border-border-dark p-5">
+                  {/* Message thread */}
+                  <div className="max-h-80 overflow-y-auto space-y-3 mb-4">
+                    {messages.length === 0 ? (
+                      <p className="text-slate-400 text-sm">No messages yet. Start the conversation.</p>
+                    ) : messages.map((msg) => (
+                      <div key={msg.id} className={`flex flex-col ${msg.sender_id === user.id ? 'items-end' : 'items-start'}`}>
+                        <div className={`max-w-[80%] rounded-xl px-4 py-3 ${msg.sender_id === user.id ? 'bg-primary/20 text-slate-100' : 'bg-background-dark text-slate-200'}`}>
+                          <p className="text-xs font-bold mb-1 text-slate-400">{msg.sender_name}</p>
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          <p className="text-[10px] text-slate-500 mt-1">{formatDate(msg.created_at, true)}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                  {/* Message input */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                      placeholder="Type a message..."
+                      maxLength={2000}
+                      className="flex-1 h-10 px-4 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none"
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim() || submitting}
+                      className="h-10 px-4 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="material-symbols-outlined text-base">send</span>
+                    </button>
+                  </div>
+                </div>
+              </Expand>
+            </div>
+          )}
+
           {/* Rating Form */}
           {user && task && statusStr === 'completed' && (isBuyer || isAcceptedSeller) && !hasRated && (
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
@@ -411,10 +616,34 @@ export default function TaskDetailPage() {
                       <span className="text-slate-400">Est. {bid.estimated_delivery_days} day{bid.estimated_delivery_days !== 1 ? 's' : ''} delivery</span>
                     </div>
                     {isBuyer && bid.status === 'pending' && (statusStr === 'open' || statusStr === 'bidding') && (
-                      <button onClick={() => handleAcceptBid(bid.id)} disabled={submitting} className="mt-3 h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Accepting...' : 'Accept Bid'}</button>
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={() => handleAcceptBid(bid.id)} disabled={submitting} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Accepting...' : 'Accept Bid'}</button>
+                        <button onClick={() => handleRejectBid(bid.id)} disabled={submitting} className="h-10 px-6 bg-red-600/10 text-red-400 border border-red-600/20 rounded-lg text-sm font-bold hover:bg-red-600/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Reject</button>
+                      </div>
                     )}
                     {user && bid.seller_id === user.id && bid.status === 'pending' && (
-                      <button onClick={() => handleWithdrawBid(bid.id)} disabled={submitting} className="mt-3 h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm font-bold hover:bg-red-600/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Withdrawing...' : 'Withdraw Bid'}</button>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => { setEditingBidId(editingBidId === bid.id ? null : bid.id); setEditBidPrice(String(bid.price)); setEditBidDays(String(bid.estimated_delivery_days)); setEditBidPitch(bid.pitch); }}
+                          className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer"
+                        >
+                          Edit Bid
+                        </button>
+                        <button onClick={() => handleWithdrawBid(bid.id)} disabled={submitting} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm font-bold hover:bg-red-600/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Withdrawing...' : 'Withdraw Bid'}</button>
+                      </div>
+                    )}
+                    {editingBidId === bid.id && (
+                      <div className="mt-3 space-y-3 bg-background-dark rounded-xl p-4 animate-fade-in">
+                        <div className="grid grid-cols-2 gap-3">
+                          <input type="number" value={editBidPrice} onChange={e => setEditBidPrice(e.target.value)} className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Price" />
+                          <input type="number" value={editBidDays} onChange={e => setEditBidDays(e.target.value)} className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Days" />
+                        </div>
+                        <textarea value={editBidPitch} onChange={e => setEditBidPitch(e.target.value)} className="w-full h-20 px-3 py-2 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Pitch" />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEditBid(bid.id)} disabled={submitting} className="h-9 px-5 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50">Save</button>
+                          <button onClick={() => setEditingBidId(null)} className="h-9 px-5 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}

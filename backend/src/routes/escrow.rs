@@ -3,6 +3,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rust_decimal::Decimal;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
@@ -117,5 +118,169 @@ pub async fn dashboard(
         page,
         per_page,
         generated_at: chrono::Utc::now(),
+    }))
+}
+
+// --- Earnings / Transaction History ---
+
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct EarningsTransaction {
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub task_title: String,
+    pub amount: Decimal,
+    pub currency: String,
+    pub status: String,
+    pub role: String, // "seller" or "buyer"
+    pub counterparty_name: String,
+    pub locked_at: chrono::DateTime<chrono::Utc>,
+    pub released_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(serde::Serialize)]
+pub struct CurrencySummary {
+    pub currency: String,
+    pub total_earned: Decimal,
+    pub total_spent: Decimal,
+    pub in_escrow: Decimal,
+}
+
+#[derive(serde::Serialize)]
+pub struct EarningsResponse {
+    pub transactions: Vec<EarningsTransaction>,
+    pub summary: Vec<CurrencySummary>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
+
+#[rocket::get("/api/earnings?<page>&<per_page>&<role>&<currency>")]
+pub async fn earnings(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    page: Option<i64>,
+    per_page: Option<i64>,
+    role: Option<String>,
+    currency: Option<String>,
+) -> Result<Json<EarningsResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+
+    // Build filter conditions
+    let role_filter = role.as_deref().unwrap_or("all");
+    let role_clause = match role_filter {
+        "seller" => "AND e.seller_id = $1 AND e.buyer_id != $1",
+        "buyer" => "AND e.buyer_id = $1 AND e.seller_id != $1",
+        _ => "AND (e.seller_id = $1 OR e.buyer_id = $1)",
+    };
+
+    let currency_clause = if currency.is_some() { "AND e.currency = $4" } else { "" };
+
+    let count_query = format!(
+        "SELECT COUNT(*) FROM escrow e WHERE 1=1 {} {} {}",
+        role_clause,
+        currency_clause,
+        ""
+    );
+
+    let total = if let Some(ref curr) = currency {
+        sqlx::query_scalar::<_, i64>(&count_query)
+            .bind(auth.user_id)
+            .bind(auth.user_id)
+            .bind(auth.user_id)
+            .bind(curr)
+            .fetch_one(pool.inner())
+            .await
+            .unwrap_or(0)
+    } else {
+        let count_query_no_curr = format!(
+            "SELECT COUNT(*) FROM escrow e WHERE 1=1 {}",
+            role_clause
+        );
+        sqlx::query_scalar::<_, i64>(&count_query_no_curr)
+            .bind(auth.user_id)
+            .fetch_one(pool.inner())
+            .await
+            .unwrap_or(0)
+    };
+
+    // Fetch transactions with task title and counterparty name
+    let base_query = format!(
+        r#"SELECT e.id, e.task_id, t.title AS task_title, e.amount, e.currency,
+                  e.status::text AS status,
+                  CASE WHEN e.seller_id = $1 THEN 'seller' ELSE 'buyer' END AS role,
+                  CASE WHEN e.seller_id = $1 THEN bu.display_name ELSE su.display_name END AS counterparty_name,
+                  e.locked_at, e.released_at
+           FROM escrow e
+           JOIN tasks t ON t.id = e.task_id
+           JOIN users bu ON bu.id = e.buyer_id
+           JOIN users su ON su.id = e.seller_id
+           WHERE 1=1 {} {}
+           ORDER BY e.locked_at DESC
+           LIMIT $2 OFFSET $3"#,
+        role_clause, currency_clause
+    );
+
+    let transactions: Vec<EarningsTransaction> = if let Some(ref curr) = currency {
+        sqlx::query_as::<_, EarningsTransaction>(&base_query)
+            .bind(auth.user_id)
+            .bind(per_page)
+            .bind(offset)
+            .bind(curr)
+            .fetch_all(pool.inner())
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
+    } else {
+        let query_no_curr = format!(
+            r#"SELECT e.id, e.task_id, t.title AS task_title, e.amount, e.currency,
+                      e.status::text AS status,
+                      CASE WHEN e.seller_id = $1 THEN 'seller' ELSE 'buyer' END AS role,
+                      CASE WHEN e.seller_id = $1 THEN bu.display_name ELSE su.display_name END AS counterparty_name,
+                      e.locked_at, e.released_at
+               FROM escrow e
+               JOIN tasks t ON t.id = e.task_id
+               JOIN users bu ON bu.id = e.buyer_id
+               JOIN users su ON su.id = e.seller_id
+               WHERE 1=1 {}
+               ORDER BY e.locked_at DESC
+               LIMIT $2 OFFSET $3"#,
+            role_clause
+        );
+        sqlx::query_as::<_, EarningsTransaction>(&query_no_curr)
+            .bind(auth.user_id)
+            .bind(per_page)
+            .bind(offset)
+            .fetch_all(pool.inner())
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
+    };
+
+    // Per-currency summary
+    let summary_rows = sqlx::query_as::<_, (String, Decimal, Decimal, Decimal)>(
+        r#"SELECT currency,
+                  COALESCE(SUM(CASE WHEN seller_id = $1 AND status = 'released' THEN amount ELSE 0 END), 0) AS total_earned,
+                  COALESCE(SUM(CASE WHEN buyer_id = $1 AND status = 'released' THEN amount ELSE 0 END), 0) AS total_spent,
+                  COALESCE(SUM(CASE WHEN (buyer_id = $1 OR seller_id = $1) AND status = 'locked' THEN amount ELSE 0 END), 0) AS in_escrow
+           FROM escrow
+           WHERE buyer_id = $1 OR seller_id = $1
+           GROUP BY currency
+           ORDER BY currency"#
+    )
+    .bind(auth.user_id)
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let summary: Vec<CurrencySummary> = summary_rows.into_iter().map(|(currency, total_earned, total_spent, in_escrow)| {
+        CurrencySummary { currency, total_earned, total_spent, in_escrow }
+    }).collect();
+
+    Ok(Json(EarningsResponse {
+        transactions,
+        summary,
+        total,
+        page,
+        per_page,
     }))
 }

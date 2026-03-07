@@ -112,3 +112,64 @@ pub async fn submit_rating(
 
     Ok(Json(rating))
 }
+
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct RatingWithContext {
+    pub id: uuid::Uuid,
+    pub task_id: uuid::Uuid,
+    pub score: i16,
+    pub comment: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub rater_name: String,
+    pub task_title: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct RatingListResponse {
+    pub ratings: Vec<RatingWithContext>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
+
+#[rocket::get("/api/users/<user_id>/ratings?<page>&<per_page>")]
+pub async fn list_user_ratings(
+    pool: &State<PgPool>,
+    user_id: &str,
+    page: Option<i64>,
+    per_page: Option<i64>,
+) -> Result<Json<RatingListResponse>, (Status, Json<ApiError>)> {
+    let uid = Uuid::parse_str(user_id)
+        .map_err(|_| ApiError::bad_request("Invalid user ID"))?;
+
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+
+    let total = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM ratings WHERE ratee_id = $1"
+    )
+    .bind(uid)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let ratings = sqlx::query_as::<_, RatingWithContext>(
+        r#"SELECT r.id, r.task_id, r.score, r.comment, r.created_at,
+                  u.display_name AS rater_name, t.title AS task_title
+           FROM ratings r
+           JOIN users u ON u.id = r.rater_id
+           JOIN tasks t ON t.id = r.task_id
+           WHERE r.ratee_id = $1
+           ORDER BY r.created_at DESC
+           LIMIT $2 OFFSET $3"#
+    )
+    .bind(uid)
+    .bind(per_page)
+    .bind(offset)
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(RatingListResponse { ratings, total, page, per_page }))
+}
