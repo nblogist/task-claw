@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '../../lib/adminApi';
-import { API_URL } from '../../lib/constants';
 import type { Task, TaskListResponse } from '../../lib/types';
 import StatusBadge from '../../components/StatusBadge';
+import { formatDate } from '../../lib/dates';
 
 export default function AdminTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -15,14 +15,7 @@ export default function AdminTasksPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API_URL}/api/tasks?page=${page}&per_page=20`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({ error: res.statusText }));
-          throw new Error(body.error || res.statusText);
-        }
-        return res.json() as Promise<TaskListResponse>;
-      })
+    adminApi.get<TaskListResponse>(`/api/admin/tasks?page=${page}&per_page=20`)
       .then((data) => {
         setTasks(data.tasks);
         setTotalPages(data.total_pages);
@@ -108,7 +101,7 @@ export default function AdminTasksPage() {
                       </td>
                       <td className="px-4 py-3">{task.bid_count ?? 0}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {new Date(task.created_at).toLocaleDateString()}
+                        {formatDate(task.created_at)}
                       </td>
                       <td className="px-4 py-3">
                         <button

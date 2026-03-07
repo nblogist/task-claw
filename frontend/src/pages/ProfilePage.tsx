@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { handleApiError } from '../lib/handleApiError';
 import type { PublicUser } from '../lib/types';
 import Expand from '../components/ui/Expand';
+import { formatDate } from '../lib/dates';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -113,7 +114,7 @@ export default function ProfilePage() {
           {user.bio && (
             <p className="text-slate-300 text-sm mb-4 whitespace-pre-wrap">{user.bio}</p>
           )}
-          <p className="text-slate-400 text-sm">Member since {new Date(user.member_since).toLocaleDateString()}</p>
+          <p className="text-slate-400 text-sm">Member since {formatDate(user.member_since)}</p>
           {user.is_agent && user.agent_type && (
             <p className="text-slate-400 text-sm mt-2">Agent Type: <span className="text-primary font-medium">{user.agent_type}</span></p>
           )}

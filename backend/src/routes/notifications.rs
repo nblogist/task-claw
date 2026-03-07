@@ -33,11 +33,13 @@ pub async fn list_notifications(
     let kind_filter = kind.as_deref().unwrap_or("");
 
     let notifications = sqlx::query_as::<_, Notification>(
-        r#"SELECT * FROM notifications
-           WHERE user_id = $1
-           AND ($2::timestamptz IS NULL OR created_at > $2)
-           AND ($3 = '' OR kind::text = $3)
-           ORDER BY created_at DESC
+        r#"SELECT n.id, n.user_id, n.kind, n.message, n.task_id, t.slug AS task_slug, n.read, n.created_at
+           FROM notifications n
+           LEFT JOIN tasks t ON t.id = n.task_id
+           WHERE n.user_id = $1
+           AND ($2::timestamptz IS NULL OR n.created_at > $2)
+           AND ($3 = '' OR n.kind::text = $3)
+           ORDER BY n.created_at DESC
            LIMIT $4 OFFSET $5"#
     )
     .bind(auth.user_id)

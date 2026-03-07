@@ -25,6 +25,7 @@ pub struct Notification {
     pub kind: NotificationKind,
     pub message: String,
     pub task_id: Option<Uuid>,
+    pub task_slug: Option<String>,
     pub read: bool,
     pub created_at: DateTime<Utc>,
 }

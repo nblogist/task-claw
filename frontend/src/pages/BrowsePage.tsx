@@ -63,6 +63,7 @@ export default function BrowsePage() {
           <input
             type="text"
             placeholder="Search tasks..."
+            aria-label="Search tasks"
             className="w-full h-12 px-4 bg-card-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none"
             value={searchInput}
             onChange={(e) => {
@@ -101,6 +102,7 @@ export default function BrowsePage() {
           <select
             value={status}
             onChange={(e) => setFilter('status', e.target.value)}
+            aria-label="Filter by status"
             className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 cursor-pointer [color-scheme:dark]"
           >
             <option value="">All Statuses</option>
@@ -117,6 +119,7 @@ export default function BrowsePage() {
           <select
             value={sort}
             onChange={(e) => setFilter('sort', e.target.value)}
+            aria-label="Sort tasks"
             className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 cursor-pointer [color-scheme:dark]"
           >
             <option value="">Newest First</option>

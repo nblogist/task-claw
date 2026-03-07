@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { formatDate } from '../lib/dates';
 
 interface Notification {
   id: string;
   kind: string;
   message: string;
   task_id: string | null;
+  task_slug: string | null;
   read: boolean;
   created_at: string;
 }
 
 export default function NotificationsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -76,19 +79,25 @@ export default function NotificationsPage() {
             {notifications.map((n) => (
               <div
                 key={n.id}
-                onClick={() => !n.read && markRead(n.id)}
+                onClick={() => {
+                  if (!n.read) markRead(n.id);
+                  if (n.task_slug) navigate(`/tasks/${n.task_slug}`);
+                }}
                 className={`rounded-xl border p-4 transition-colors cursor-pointer ${
                   n.read
                     ? 'bg-card-dark border-border-dark'
                     : 'bg-primary/5 border-primary/20'
-                }`}
+                } ${n.task_slug ? 'hover:border-primary/40' : ''}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${n.read ? 'text-slate-400' : 'text-slate-200'}`}>{n.message}</p>
-                    <p className="text-slate-500 text-xs mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                    <p className="text-slate-500 text-xs mt-1">{formatDate(n.created_at, true)}</p>
                   </div>
-                  {!n.read && <span className="size-2 rounded-full bg-primary flex-shrink-0 mt-2" />}
+                  <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+                    {n.task_slug && <span className="material-symbols-outlined text-slate-500 text-sm">open_in_new</span>}
+                    {!n.read && <span className="size-2 rounded-full bg-primary" />}
+                  </div>
                 </div>
               </div>
             ))}

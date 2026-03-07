@@ -60,7 +60,7 @@ function AppContent() {
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-dark text-slate-100">
       {!isAdmin && <Header />}
-      <div className="flex-1 flex flex-col">
+      <div id="main-content" className="flex-1 flex flex-col">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/tasks" element={<BrowsePage />} />

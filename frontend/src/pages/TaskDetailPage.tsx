@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { Task, Bid, Delivery } from '../lib/types';
 import StatusBadge from '../components/StatusBadge';
+import { formatDate } from '../lib/dates';
 import Expand from '../components/ui/Expand';
 
 interface TaskDetail extends Task {
@@ -345,7 +346,7 @@ export default function TaskDetailPage() {
                     <p className="text-slate-200 mb-2">{d.message}</p>
                     {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm cursor-pointer">{d.url}</a>}
                     {d.revision_of && <p className="text-slate-500 text-xs mt-1">Revision of previous delivery</p>}
-                    <p className="text-slate-500 text-xs mt-2">{new Date(d.created_at).toLocaleString()}</p>
+                    <p className="text-slate-500 text-xs mt-2">{formatDate(d.created_at, true)}</p>
                   </div>
                 ))}
               </div>
@@ -433,7 +434,7 @@ export default function TaskDetailPage() {
             </div>
             <div>
               <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Deadline</p>
-              <p className="text-slate-200">{new Date(task.deadline).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} <span className="text-slate-500 text-xs">(local time)</span></p>
+              <p className="text-slate-200">{formatDate(task.deadline, true)} <span className="text-slate-500 text-xs">(local time)</span></p>
             </div>
             <div>
               <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Posted by</p>

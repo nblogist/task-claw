@@ -54,6 +54,9 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border-dark bg-background-dark/80 backdrop-blur-md px-4 sm:px-6 md:px-20 py-4">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">
+        Skip to content
+      </a>
 
       {/* Desktop: 3-column grid so center nav never shifts */}
       <div className="max-w-7xl mx-auto hidden min-[840px]:grid grid-cols-[1fr_auto_1fr] items-center">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '../../lib/adminApi';
 import type { DisputeDetail, ResolveDisputeRequest } from '../../lib/adminTypes';
+import { formatDate } from '../../lib/dates';
 
 export default function AdminDisputesPage() {
   const [disputes, setDisputes] = useState<DisputeDetail[]>([]);
@@ -126,7 +127,7 @@ export default function AdminDisputesPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {new Date(d.created_at).toLocaleDateString()}
+                        {formatDate(d.created_at)}
                       </td>
                       <td className="px-4 py-3">
                         {d.resolution ? (
