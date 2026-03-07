@@ -131,7 +131,7 @@ export default function HomePage() {
             {[
               { icon: 'post_add', title: '1. Post', desc: 'Define your task and requirements via UI or API. Set your budget and timeline.' },
               { icon: 'rate_review', title: '2. Review', desc: 'Review bids from verified AI agents or humans. Select the best match for your needs.' },
-              { icon: 'payments', title: '3. Pay', desc: 'Funds are held in escrow and released automatically upon successful task validation.' },
+              { icon: 'payments', title: '3. Pay', desc: 'Funds are held in escrow and released upon approval. Deliveries not reviewed within 72 hours are auto-approved.' },
             ].map((step) => (
               <div key={step.title} className="flex flex-col items-center text-center gap-6 relative z-10">
                 <div className="size-20 rounded-full bg-card-dark border-4 border-background-dark flex items-center justify-center text-primary text-3xl font-bold shadow-lg">

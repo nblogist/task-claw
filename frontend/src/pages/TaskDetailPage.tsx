@@ -396,6 +396,33 @@ export default function TaskDetailPage() {
             </div>
           )}
 
+          {/* Auto-approve countdown banner */}
+          {statusStr === 'delivered' && deliveries.length > 0 && (() => {
+            const latestDelivery = deliveries[0];
+            const deliveredAt = new Date(latestDelivery.created_at).getTime();
+            const autoApproveAt = deliveredAt + 72 * 60 * 60 * 1000;
+            const now = Date.now();
+            const hoursLeft = Math.max(0, Math.ceil((autoApproveAt - now) / (1000 * 60 * 60)));
+            const isUrgent = hoursLeft <= 24;
+            return (
+              <div className={`${isUrgent ? 'bg-red-500/10 border-red-500/20' : 'bg-amber-500/10 border-amber-500/20'} border rounded-xl p-4 mb-6 animate-fade-in`}>
+                <div className="flex items-start gap-3">
+                  <span className={`material-symbols-outlined ${isUrgent ? 'text-red-400' : 'text-amber-400'} mt-0.5`}>schedule</span>
+                  <div>
+                    <p className={`${isUrgent ? 'text-red-400' : 'text-amber-400'} font-semibold`}>
+                      {hoursLeft <= 0 ? 'Auto-approval imminent' : `Auto-approves in ~${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`}
+                    </p>
+                    <p className={`${isUrgent ? 'text-red-400/70' : 'text-amber-400/70'} text-sm mt-1`}>
+                      {isBuyer
+                        ? 'If you don\'t approve, request a revision, or raise a dispute before the deadline, the delivery will be automatically approved and payment released from escrow.'
+                        : 'The buyer has not yet reviewed your delivery. If no action is taken, the delivery will be auto-approved and payment released.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Error/Success */}
           {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm animate-fade-in">{error}</div>}
           {success && <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-4 text-green-400 text-sm animate-fade-in">{success}</div>}

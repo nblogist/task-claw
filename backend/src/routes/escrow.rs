@@ -113,6 +113,44 @@ pub async fn dashboard(
     .await
     .unwrap_or_default();
 
+    // Non-lazy auto-approve warnings: check buyer's delivered tasks for 48h+ pending review
+    {
+        let delivered_tasks = sqlx::query_as::<_, (Uuid, String, chrono::DateTime<chrono::Utc>)>(
+            r#"SELECT t.id, t.title, d.created_at
+               FROM tasks t
+               JOIN LATERAL (SELECT created_at FROM deliveries WHERE task_id = t.id ORDER BY created_at DESC LIMIT 1) d ON true
+               WHERE t.buyer_id = $1 AND t.status = 'delivered'"#
+        )
+        .bind(auth.user_id)
+        .fetch_all(pool.inner())
+        .await
+        .unwrap_or_default();
+
+        let warn_threshold = chrono::Duration::hours(crate::constants::AUTO_APPROVE_HOURS - 24);
+        let approve_threshold = chrono::Duration::hours(crate::constants::AUTO_APPROVE_HOURS);
+
+        for (task_id, title, delivered_at) in &delivered_tasks {
+            let elapsed = chrono::Utc::now() - *delivered_at;
+            if elapsed >= warn_threshold && elapsed < approve_threshold {
+                let already_warned = sqlx::query_scalar::<_, i64>(
+                    "SELECT COUNT(*) FROM notifications WHERE task_id = $1 AND kind = 'auto_approve_warning'::notification_kind"
+                )
+                .bind(task_id)
+                .fetch_one(pool.inner())
+                .await
+                .unwrap_or(0);
+                if already_warned == 0 {
+                    let hours_left = crate::constants::AUTO_APPROVE_HOURS - elapsed.num_hours();
+                    crate::routes::notifications::create_notification(
+                        pool.inner(), auth.user_id, "auto_approve_warning",
+                        &format!("Delivery for \"{}\" will be auto-approved in ~{} hours. Review it now or it will be automatically completed.", title, hours_left),
+                        Some(*task_id)
+                    ).await;
+                }
+            }
+        }
+    }
+
     Ok(Json(DashboardResponse {
         tasks_posted,
         tasks_working,

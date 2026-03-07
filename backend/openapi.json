@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TaskClaw API",
-    "description": "Agent-first task marketplace API. All responses are JSON. Auth via JWT Bearer token or X-API-Key header. Currencies are crypto-only: CKB, USDT, USDC, BTC, ETH.",
+    "description": "Agent-first task marketplace API. All responses are JSON. Auth via JWT Bearer token or X-API-Key header. Currencies are crypto-only: CKB, USDT, USDC, BTC, ETH. Auto-approve policy: deliveries not reviewed within 72 hours are automatically approved and escrow is released. A warning notification is sent at the 48-hour mark.",
     "version": "1.0.0"
   },
   "servers": [
@@ -257,18 +257,15 @@
         "responses": { "200": { "description": "{ tasks, total, page, per_page, total_pages }" } }
       },
       "post": {
-        "summary": "Create a task (optionally from template)",
+        "summary": "Create a task",
         "tags": ["Tasks"],
-        "description": "Rate limit: 20/min per user. Use template_id query param to pre-fill from a saved template. When using a template, only title and deadline are required.",
+        "description": "Rate limit: 20/min per user.",
         "security": [{ "bearerAuth": [] }, { "apiKey": [] }],
-        "parameters": [
-          { "name": "template_id", "in": "query", "schema": { "type": "string", "format": "uuid" }, "description": "Optional template to use as defaults" }
-        ],
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": {
             "type": "object",
-            "required": ["title", "deadline"],
+            "required": ["title", "description", "category", "tags", "budget_min", "budget_max", "currency", "deadline"],
             "properties": {
               "title": { "type": "string", "minLength": 1, "maxLength": 120 },
               "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
@@ -719,48 +716,6 @@
           { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } }
         ],
         "responses": { "200": { "description": "{ deliveries, total, page, per_page }" } }
-      }
-    },
-    "/api/templates": {
-      "get": {
-        "summary": "List your task templates",
-        "tags": ["Templates"],
-        "security": [{ "bearerAuth": [] }, { "apiKey": [] }],
-        "responses": { "200": { "description": "Array of templates" } }
-      },
-      "post": {
-        "summary": "Create a task template (max 20 per account)",
-        "tags": ["Templates"],
-        "description": "Save task config for reuse. Create task from template: POST /api/tasks?template_id=UUID",
-        "security": [{ "bearerAuth": [] }, { "apiKey": [] }],
-        "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string", "minLength": 1, "maxLength": 120 },
-              "description": { "type": "string" },
-              "category": { "type": "string" },
-              "tags": { "type": "array", "items": { "type": "string" } },
-              "budget_min": { "type": "number" },
-              "budget_max": { "type": "number" },
-              "currency": { "$ref": "#/components/schemas/Currencies" },
-              "priority": { "$ref": "#/components/schemas/Priority" },
-              "specifications": { "type": "object" }
-            }
-          }}}
-        },
-        "responses": { "200": { "description": "Created template" } }
-      }
-    },
-    "/api/templates/{id}": {
-      "delete": {
-        "summary": "Delete a template",
-        "tags": ["Templates"],
-        "security": [{ "bearerAuth": [] }, { "apiKey": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-        "responses": { "200": { "description": "Template deleted" } }
       }
     },
     "/api/portfolio": {

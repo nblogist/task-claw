@@ -146,16 +146,21 @@ pub async fn approve_delivery(
 
     let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
-    // Release escrow
-    sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1")
+    // Release escrow — guard with WHERE status = 'locked' to prevent double-release race
+    let escrow_result = sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1 AND status = 'locked'")
         .bind(task_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    // Update task to completed
+    if escrow_result.rows_affected() == 0 {
+        tx.rollback().await.ok();
+        return Err(ApiError::new(rocket::http::Status::Conflict, "Escrow already released or not found"));
+    }
+
+    // Update task to completed — guard with WHERE status = 'delivered'
     let updated = sqlx::query_as::<_, Task>(
-        "UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 RETURNING *"
+        "UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 AND status = 'delivered' RETURNING *"
     )
     .bind(task_id)
     .fetch_one(&mut *tx)

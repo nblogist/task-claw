@@ -305,42 +305,54 @@ pub async fn get_task(
             if hours_since >= AUTO_APPROVE_HOURS {
                 let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
-                // Release escrow
-                sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1")
+                // Release escrow — guard with WHERE status = 'locked' to prevent double-release
+                let escrow_result = sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1 AND status = 'locked'")
                     .bind(task.id)
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-                // Complete the task
-                task = sqlx::query_as::<_, Task>(
-                    "UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 RETURNING *"
-                )
-                .bind(task.id)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(|e| ApiError::internal(e.to_string()))?;
+                // Only proceed if we actually released (rows_affected > 0 means we won the race)
+                if escrow_result.rows_affected() > 0 {
+                    // Complete the task — guard with WHERE status = 'delivered' to prevent double-transition
+                    task = sqlx::query_as::<_, Task>(
+                        "UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 AND status = 'delivered' RETURNING *"
+                    )
+                    .bind(task.id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| ApiError::internal(e.to_string()))?;
 
-                // Increment seller's tasks_completed
-                if let Ok(escrow) = sqlx::query_as::<_, crate::models::escrow::Escrow>(
-                    "SELECT * FROM escrow WHERE task_id = $1"
-                )
-                .bind(task.id)
-                .fetch_one(&mut *tx)
-                .await
-                {
-                    let _ = sqlx::query("UPDATE users SET tasks_completed = tasks_completed + 1 WHERE id = $1")
-                        .bind(escrow.seller_id)
-                        .execute(&mut *tx)
-                        .await;
+                    // Increment seller's tasks_completed
+                    if let Ok(escrow) = sqlx::query_as::<_, crate::models::escrow::Escrow>(
+                        "SELECT * FROM escrow WHERE task_id = $1"
+                    )
+                    .bind(task.id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    {
+                        let _ = sqlx::query("UPDATE users SET tasks_completed = tasks_completed + 1 WHERE id = $1")
+                            .bind(escrow.seller_id)
+                            .execute(&mut *tx)
+                            .await;
 
-                    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+                        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
-                    // Notify both parties
-                    create_notification(pool.inner(), escrow.seller_id, "delivery_approved", &format!("Delivery auto-approved for \"{}\". Payment released.", task.title), Some(task.id)).await;
-                    create_notification(pool.inner(), task.buyer_id, "delivery_approved", &format!("Delivery for \"{}\" was auto-approved after {} hours.", task.title, AUTO_APPROVE_HOURS), Some(task.id)).await;
+                        // Notify both parties
+                        create_notification(pool.inner(), escrow.seller_id, "delivery_approved", &format!("Delivery auto-approved for \"{}\". Payment released.", task.title), Some(task.id)).await;
+                        create_notification(pool.inner(), task.buyer_id, "delivery_approved", &format!("Delivery for \"{}\" was auto-approved after {} hours.", task.title, AUTO_APPROVE_HOURS), Some(task.id)).await;
+                    } else {
+                        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+                    }
                 } else {
-                    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+                    // Another request already released — just rollback and continue
+                    tx.rollback().await.ok();
+                    // Re-fetch the task to get the updated status
+                    task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
+                        .bind(task.id)
+                        .fetch_one(pool.inner())
+                        .await
+                        .map_err(|e| ApiError::internal(e.to_string()))?;
                 }
             }
         }
@@ -677,7 +689,12 @@ pub async fn api_discovery() -> Json<serde_json::Value> {
         "auth": {
             "register": "POST /api/auth/register",
             "login": "POST /api/auth/login",
-            "type": "Bearer JWT token in Authorization header"
+            "type": "Bearer JWT token or X-API-Key header"
+        },
+        "policies": {
+            "auto_approve": "Deliveries not reviewed within 72 hours are automatically approved and escrow is released. A warning is sent at the 48-hour mark.",
+            "currencies": ["CKB", "USDT", "USDC", "BTC", "ETH"],
+            "escrow": "Simulated (database ledger). On-chain escrow planned for v2."
         },
         "quickstart": [
             "1. GET /api/openapi.json — full machine-readable API spec",

@@ -245,11 +245,14 @@ pub async fn accept_bid(
     let bid_id = Uuid::parse_str(bid_id)
         .map_err(|_| ApiError::bad_request("Invalid bid ID"))?;
 
+    // Start transaction FIRST, then lock the task row to prevent TOCTOU race
+    let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
     let task = sqlx::query_as::<_, Task>(
-        "SELECT * FROM tasks WHERE id = $1"
+        "SELECT * FROM tasks WHERE id = $1 FOR UPDATE"
     )
     .bind(task_id)
-    .fetch_optional(pool.inner())
+    .fetch_optional(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?
     .ok_or_else(|| ApiError::not_found("Task not found"))?;
@@ -273,7 +276,7 @@ pub async fn accept_bid(
     )
     .bind(bid_id)
     .bind(task_id)
-    .fetch_optional(pool.inner())
+    .fetch_optional(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?
     .ok_or_else(|| ApiError::not_found("Bid not found"))?;
@@ -285,7 +288,7 @@ pub async fn accept_bid(
     // Check spend limits
     let buyer = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
         .bind(auth.user_id)
-        .fetch_one(pool.inner())
+        .fetch_one(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
@@ -301,7 +304,7 @@ pub async fn accept_bid(
                WHERE buyer_id = $1 AND locked_at >= CURRENT_DATE"#,
         )
         .bind(auth.user_id)
-        .fetch_one(pool.inner())
+        .fetch_one(&mut *tx)
         .await
         .unwrap_or_default();
 
@@ -309,8 +312,6 @@ pub async fn accept_bid(
             return Err(ApiError::bad_request("Accepting this bid would exceed your daily spend limit"));
         }
     }
-
-    let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     // Accept the bid
     sqlx::query("UPDATE bids SET status = 'accepted', updated_at = now() WHERE id = $1")

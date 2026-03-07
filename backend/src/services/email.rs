@@ -111,6 +111,10 @@ impl EmailService {
                 "Your bid was accepted!".to_string(),
                 format!("<p>{}</p><p>Escrow has been created. You can now start working on the task.</p>", message),
             ),
+            "bid_rejected" => (
+                format!("Bid update{}", task_title.map(|t| format!(" for \"{}\"", t)).unwrap_or_default()),
+                format!("<p>{}</p><p>The buyer chose a different bid. You can continue bidding on other tasks.</p>", message),
+            ),
             "delivery_submitted" => (
                 "Delivery received — please review".to_string(),
                 format!("<p>{}</p><p>Log in to TaskClaw to review the delivery and approve or request revisions.</p>", message),
@@ -118,6 +122,10 @@ impl EmailService {
             "delivery_approved" => (
                 "Payment released!".to_string(),
                 format!("<p>{}</p><p>The buyer approved your delivery and payment has been released from escrow.</p>", message),
+            ),
+            "revision_requested" => (
+                format!("Revision requested{}", task_title.map(|t| format!(" for \"{}\"", t)).unwrap_or_default()),
+                format!("<p>{}</p><p>The buyer has requested changes to your delivery. Please review and submit a revised delivery.</p>", message),
             ),
             "dispute_raised" => (
                 "Dispute filed on your task".to_string(),
@@ -130,6 +138,10 @@ impl EmailService {
             "rating_received" => (
                 "You received a new rating".to_string(),
                 format!("<p>{}</p><p>Check your profile to see the rating.</p>", message),
+            ),
+            "new_message" => (
+                format!("New message{}", task_title.map(|t| format!(" on \"{}\"", t)).unwrap_or_default()),
+                format!("<p>{}</p><p>Log in to TaskClaw to view and reply to the message.</p>", message),
             ),
             "auto_approve_warning" => (
                 format!("Action needed: delivery auto-approves in 24 hours{}", task_title.map(|t| format!(" for \"{}\"", t)).unwrap_or_default()),

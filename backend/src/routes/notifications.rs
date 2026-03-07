@@ -107,12 +107,15 @@ pub async fn mark_read(
 const EMAIL_WORTHY_KINDS: &[&str] = &[
     "bid_received",
     "bid_accepted",
+    "bid_rejected",
     "delivery_submitted",
     "delivery_approved",
+    "revision_requested",
     "dispute_raised",
     "dispute_resolved",
     "rating_received",
     "auto_approve_warning",
+    "new_message",
 ];
 
 /// Helper to create a notification (called from other routes).
