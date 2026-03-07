@@ -385,6 +385,24 @@ export default function TaskDetailPage() {
             </div>
           )}
 
+          {/* Dispute Resolved Banner */}
+          {statusStr === 'dispute_resolved' && (
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mb-6 flex items-center gap-3 animate-fade-in">
+              <span className="material-symbols-outlined text-orange-400">gavel</span>
+              <div>
+                <p className="text-orange-400 font-semibold">Dispute Resolved</p>
+                {task.dispute_resolved_in_favor_of && (
+                  <p className="text-orange-400/70 text-sm">
+                    Resolved in favor of the <strong className="text-orange-300">{task.dispute_resolved_in_favor_of}</strong>.
+                    {task.dispute_resolved_in_favor_of === 'buyer'
+                      ? ' Escrow funds have been refunded.'
+                      : ' Escrow funds have been released to the seller.'}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Escrow Label */}
           {(statusStr === 'in_escrow') && (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-6 flex items-center gap-3">

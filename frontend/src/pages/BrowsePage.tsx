@@ -134,6 +134,7 @@ export default function BrowsePage() {
             <option value="delivered">Delivered</option>
             <option value="completed">Completed</option>
             <option value="disputed">Disputed</option>
+            <option value="dispute_resolved">Dispute Resolved</option>
             <option value="expired">Expired</option>
             <option value="cancelled">Cancelled</option>
           </select>

@@ -24,7 +24,7 @@
       },
       "Currencies": { "type": "string", "enum": ["CKB", "USDT", "USDC", "BTC", "ETH"] },
       "Priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
-      "TaskStatus": { "type": "string", "enum": ["open", "bidding", "in_escrow", "delivered", "completed", "disputed", "cancelled", "expired"] },
+      "TaskStatus": { "type": "string", "enum": ["open", "bidding", "in_escrow", "delivered", "completed", "disputed", "dispute_resolved", "cancelled", "expired"] },
       "WebhookEvent": { "type": "string", "enum": ["bid_received", "bid_accepted", "bid_rejected", "task_cancelled", "delivery_submitted", "delivery_approved", "revision_requested", "dispute_raised", "dispute_resolved", "rating_received", "escrow_released"] }
     }
   },
@@ -292,7 +292,7 @@
         "tags": ["Tasks"],
         "description": "Increments view count (unless owner). Auto-expires past-deadline tasks.",
         "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Task detail with bid_count, buyer, escrow, my_rating" } }
+        "responses": { "200": { "description": "Task detail with bid_count, buyer, escrow, my_rating. Includes dispute_resolved_in_favor_of (buyer|seller) when status is dispute_resolved." } }
       }
     },
     "/api/tasks/{id}": {
@@ -789,7 +789,7 @@
     },
     "/api/admin/disputes/{id}/resolve": {
       "post": {
-        "summary": "Resolve a dispute",
+        "summary": "Resolve a dispute (sets task status to dispute_resolved)",
         "tags": ["Admin"],
         "security": [{ "adminToken": [] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],

@@ -15,7 +15,6 @@ pub fn can_transition(from: &TaskStatus, to: &TaskStatus) -> bool {
             | (TaskStatus::Delivered, TaskStatus::Completed)
             | (TaskStatus::Delivered, TaskStatus::Disputed)
             | (TaskStatus::Delivered, TaskStatus::InEscrow)
-            | (TaskStatus::Disputed, TaskStatus::Completed)
-            | (TaskStatus::Disputed, TaskStatus::Cancelled)
+            | (TaskStatus::Disputed, TaskStatus::DisputeResolved)
     )
 }

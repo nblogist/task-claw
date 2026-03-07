@@ -218,6 +218,7 @@ pub async fn list_tasks(
 #[rocket::get("/api/tasks/<slug>")]
 pub async fn get_task(
     pool: &State<PgPool>,
+    escrow_mode: &State<crate::models::escrow::EscrowMode>,
     auth: Option<AuthUser>,
     slug: &str,
 ) -> Result<Json<TaskDetail>, (Status, Json<ApiError>)> {
@@ -389,7 +390,7 @@ pub async fn get_task(
     };
 
     // Fetch escrow if task has one (in_escrow, delivered, disputed, completed)
-    let escrow = if matches!(task.status, TaskStatus::InEscrow | TaskStatus::Delivered | TaskStatus::Disputed | TaskStatus::Completed) {
+    let escrow = if matches!(task.status, TaskStatus::InEscrow | TaskStatus::Delivered | TaskStatus::Disputed | TaskStatus::Completed | TaskStatus::DisputeResolved) {
         sqlx::query_as::<_, crate::models::escrow::Escrow>(
             "SELECT * FROM escrow WHERE task_id = $1"
         )
@@ -406,7 +407,7 @@ pub async fn get_task(
         bid_count,
         buyer: PublicUser::from(&buyer),
         my_rating,
-        escrow,
+        escrow: escrow.map(|e| e.with_escrow_mode(escrow_mode.inner())),
     }))
 }
 

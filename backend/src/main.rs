@@ -92,12 +92,17 @@ async fn rocket() -> _ {
     // Rate limiter: 10 requests per 60 seconds per IP on auth endpoints
     let rate_limiter = RateLimiter::new(10, 60);
 
+    // Escrow mode: "simulated" (DB ledger only) or "real" (crypto payments)
+    let escrow_mode = models::escrow::EscrowMode::from_env();
+    eprintln!("[INFO] Escrow mode: {:?}", escrow_mode);
+
     // Start background webhook retry loop
     routes::webhooks::start_webhook_retry_loop(pool.clone());
 
     rocket::build()
         .manage(pool)
         .manage(rate_limiter)
+        .manage(escrow_mode)
         .attach(cors)
         .register("/", catchers![
             catch_bad_request,

@@ -182,7 +182,7 @@ pub async fn create_bid(
 
     // Check if seller already bid on this task
     let existing = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM bids WHERE task_id = $1 AND seller_id = $2"
+        "SELECT COUNT(*) FROM bids WHERE task_id = $1 AND seller_id = $2 AND status != 'withdrawn'"
     )
     .bind(task_id)
     .bind(auth.user_id)
@@ -236,6 +236,7 @@ pub async fn create_bid(
 #[rocket::post("/api/tasks/<task_id>/bids/<bid_id>/accept")]
 pub async fn accept_bid(
     pool: &State<PgPool>,
+    escrow_mode: &State<crate::models::escrow::EscrowMode>,
     auth: AuthUser,
     task_id: &str,
     bid_id: &str,
@@ -357,7 +358,7 @@ pub async fn accept_bid(
     // Notify seller their bid was accepted
     create_notification(pool.inner(), bid.seller_id, "bid_accepted", &format!("Your bid on \"{}\" was accepted!", task.title), Some(task.id)).await;
 
-    Ok(Json(escrow))
+    Ok(Json(escrow.with_escrow_mode(escrow_mode.inner())))
 }
 
 #[rocket::post("/api/tasks/<task_id>/bids/<bid_id>/reject")]
@@ -594,7 +595,7 @@ async fn process_single_bid(
     }
 
     // Check duplicate
-    let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM bids WHERE task_id = $1 AND seller_id = $2")
+    let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM bids WHERE task_id = $1 AND seller_id = $2 AND status != 'withdrawn'")
         .bind(item.task_id).bind(auth.user_id).fetch_one(pool).await.unwrap_or(0);
     if existing > 0 {
         return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Already bid on this task".into()) };

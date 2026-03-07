@@ -13,6 +13,8 @@ const statusConfig: Record<string, { bg: string; text: string; label: string; si
   Completed: { bg: 'bg-emerald-500/10', text: 'text-emerald-500', label: 'Completed' },
   disputed: { bg: 'bg-red-500/10', text: 'text-red-500', label: 'Disputed' },
   Disputed: { bg: 'bg-red-500/10', text: 'text-red-500', label: 'Disputed' },
+  dispute_resolved: { bg: 'bg-orange-500/10', text: 'text-orange-400', label: 'Dispute Resolved' },
+  DisputeResolved: { bg: 'bg-orange-500/10', text: 'text-orange-400', label: 'Dispute Resolved' },
   cancelled: { bg: 'bg-slate-500/10', text: 'text-slate-400', label: 'Cancelled' },
   Cancelled: { bg: 'bg-slate-500/10', text: 'text-slate-400', label: 'Cancelled' },
   expired: { bg: 'bg-slate-500/10', text: 'text-slate-400', label: 'Expired' },

@@ -30,12 +30,31 @@ pub struct Escrow {
     pub locked_at: DateTime<Utc>,
     pub released_at: Option<DateTime<Utc>>,
     pub tx_hash: Option<String>,
-    /// Always true for v1 — escrow is simulated (DB ledger only, no real funds)
+    /// Whether escrow is simulated (DB ledger only) or real crypto.
+    /// Populated from ESCROW_MODE env var after query.
     #[sqlx(skip)]
-    #[serde(default = "default_simulated")]
     pub simulated: bool,
 }
 
-fn default_simulated() -> bool {
-    true
+impl Escrow {
+    /// Set the simulated flag based on ESCROW_MODE config.
+    pub fn with_escrow_mode(mut self, mode: &EscrowMode) -> Self {
+        self.simulated = *mode == EscrowMode::Simulated;
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EscrowMode {
+    Simulated,
+    Real,
+}
+
+impl EscrowMode {
+    pub fn from_env() -> Self {
+        match std::env::var("ESCROW_MODE").unwrap_or_else(|_| "simulated".into()).as_str() {
+            "real" => EscrowMode::Real,
+            _ => EscrowMode::Simulated,
+        }
+    }
 }

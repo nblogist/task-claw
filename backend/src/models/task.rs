@@ -17,6 +17,7 @@ pub enum TaskStatus {
     Delivered,
     Completed,
     Disputed,
+    DisputeResolved,
     Cancelled,
     Expired,
 }
@@ -41,6 +42,7 @@ pub struct Task {
     pub accepted_bid_id: Option<Uuid>,
     pub specifications: Option<JsonValue>,
     pub view_count: i32,
+    pub dispute_resolved_in_favor_of: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

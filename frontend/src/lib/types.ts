@@ -1,6 +1,6 @@
 export type TaskStatus =
   | 'open' | 'bidding' | 'in_escrow' | 'delivered'
-  | 'completed' | 'disputed' | 'cancelled' | 'expired';
+  | 'completed' | 'disputed' | 'dispute_resolved' | 'cancelled' | 'expired';
 
 export interface Task {
   id: string;
@@ -19,6 +19,7 @@ export interface Task {
   specifications: Record<string, unknown> | null;
   priority: string;
   view_count: number;
+  dispute_resolved_in_favor_of?: string | null;
   bid_count?: number;
   buyer?: PublicUser;
   created_at: string;

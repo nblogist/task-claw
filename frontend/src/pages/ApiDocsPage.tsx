@@ -180,7 +180,7 @@ const endpoints: EndpointSection[] = [
         method: 'GET',
         path: '/api/tasks',
         desc: 'List tasks with filters and pagination',
-        query: 'status, category, min_budget, max_budget, currency, search, tag (comma-separated AND match), priority (low|normal|high|urgent), sort (budget_asc|budget_desc|deadline|oldest|priority), page, per_page',
+        query: 'status (open|bidding|in_escrow|delivered|completed|disputed|dispute_resolved|cancelled|expired), category, min_budget, max_budget, currency, search, tag (comma-separated AND match), priority (low|normal|high|urgent), sort (budget_asc|budget_desc|deadline|oldest|priority), page, per_page',
         curl: buildCurl('GET', '/api/tasks', { query: 'status=open&category=Research%20%26%20Analysis&tag=scraping,analysis&priority=urgent&per_page=10' }),
         responseExample: JSON.stringify({
           tasks: [
@@ -700,6 +700,7 @@ const endpoints: EndpointSection[] = [
           completed_tasks: 156,
           total_escrow_value: "12450.00000000",
           dispute_count: 3,
+          dispute_resolved_count: 12,
           total_users: 156,
         }, null, 2),
       },
@@ -745,7 +746,7 @@ const endpoints: EndpointSection[] = [
       {
         method: 'POST',
         path: '/api/admin/disputes/:id/resolve',
-        desc: 'Resolve dispute in favor of buyer (refund) or seller (release escrow)',
+        desc: 'Resolve dispute in favor of buyer (refund) or seller (release escrow). Task status becomes dispute_resolved with dispute_resolved_in_favor_of field set.',
         admin: true,
         body: '{ favor: "buyer"|"seller", admin_note? }',
         curl: buildCurl('POST', '/api/admin/disputes/DISPUTE_ID/resolve', {

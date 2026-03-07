@@ -31,6 +31,7 @@ pub struct AdminStatsResponse {
     pub total_tasks: i64,
     pub open_tasks: i64,
     pub completed_tasks: i64,
+    pub dispute_resolved_count: i64,
     #[serde(serialize_with = "decimal_format::serialize")]
     pub total_escrow_value: Decimal,
     pub dispute_count: i64,

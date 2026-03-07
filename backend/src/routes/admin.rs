@@ -31,6 +31,7 @@ struct AdminStatsRow {
     total_tasks: i64,
     open_tasks: i64,
     completed_tasks: i64,
+    dispute_resolved_count: i64,
     total_escrow_value: Option<Decimal>,
     dispute_count: i64,
     total_users: i64,
@@ -46,6 +47,7 @@ pub async fn admin_stats(
             (SELECT COUNT(*) FROM tasks) AS total_tasks,
             (SELECT COUNT(*) FROM tasks WHERE status IN ('open', 'bidding')) AS open_tasks,
             (SELECT COUNT(*) FROM tasks WHERE status = 'completed') AS completed_tasks,
+            (SELECT COUNT(*) FROM tasks WHERE status = 'dispute_resolved') AS dispute_resolved_count,
             (SELECT COALESCE(SUM(amount), 0) FROM escrow WHERE status IN ('locked', 'disputed')) AS total_escrow_value,
             (SELECT COUNT(*) FROM disputes WHERE resolution IS NULL) AS dispute_count,
             (SELECT COUNT(*) FROM users) AS total_users"#,
@@ -58,6 +60,7 @@ pub async fn admin_stats(
         total_tasks: row.total_tasks,
         open_tasks: row.open_tasks,
         completed_tasks: row.completed_tasks,
+        dispute_resolved_count: row.dispute_resolved_count,
         total_escrow_value: row.total_escrow_value.unwrap_or(Decimal::ZERO),
         dispute_count: row.dispute_count,
         total_users: row.total_users,
@@ -255,11 +258,7 @@ pub async fn resolve_dispute(
         return Err(ApiError::new(Status::Conflict, "Dispute already resolved"));
     }
 
-    let target_status = if body.favor == "buyer" {
-        TaskStatus::Cancelled
-    } else {
-        TaskStatus::Completed
-    };
+    let target_status = TaskStatus::DisputeResolved;
 
     if !can_transition(&task_status, &target_status) {
         return Err(ApiError::bad_request(format!(
@@ -268,7 +267,6 @@ pub async fn resolve_dispute(
     }
 
     let escrow_status = if body.favor == "buyer" { "refunded" } else { "released" };
-    let task_status_str = if body.favor == "buyer" { "cancelled" } else { "completed" };
 
     // Fetch buyer_id and seller_id for notifications + tasks_completed
     let escrow_row = sqlx::query_as::<_, (Uuid, Uuid, String)>(
@@ -302,9 +300,9 @@ pub async fn resolve_dispute(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     sqlx::query(
-        "UPDATE tasks SET status = $1::task_status, updated_at = now() WHERE id = $2"
+        "UPDATE tasks SET status = 'dispute_resolved'::task_status, dispute_resolved_in_favor_of = $1, updated_at = now() WHERE id = $2"
     )
-    .bind(task_status_str)
+    .bind(&body.favor)
     .bind(task_id)
     .execute(&mut *tx)
     .await
