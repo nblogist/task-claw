@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Task } from '../lib/types';
 import StatusBadge from './StatusBadge';
+import { formatDate } from '../lib/dates';
 
 function formatBudget(min: number, max: number, currency: string) {
   const fmt = (n: number) => parseFloat(String(n)).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -42,6 +43,8 @@ export default function TaskCard({ task }: { task: Task }) {
       </h3>
 
       <p className="text-slate-400 text-sm line-clamp-2">{task.description}</p>
+
+      <p className="text-slate-500 text-xs">Posted {formatDate(task.created_at)}</p>
 
       <div className="pt-4 border-t border-border-dark flex justify-between items-center">
         <div>

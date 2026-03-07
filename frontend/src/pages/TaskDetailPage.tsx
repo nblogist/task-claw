@@ -641,6 +641,7 @@ export default function TaskDetailPage() {
                     <div className="flex gap-6 text-sm">
                       <span className="text-white font-bold">{parseFloat(String(bid.price)).toLocaleString()} {bid.currency}</span>
                       <span className="text-slate-400">Est. {bid.estimated_delivery_days} day{bid.estimated_delivery_days !== 1 ? 's' : ''} delivery</span>
+                      <span className="text-slate-500 text-xs">{formatDate(bid.created_at)}</span>
                     </div>
                     {isBuyer && bid.status === 'pending' && (statusStr === 'open' || statusStr === 'bidding') && (
                       <div className="flex gap-2 mt-3">
@@ -698,6 +699,7 @@ export default function TaskDetailPage() {
                 {task.buyer?.display_name}
               </Link>
               {task.buyer?.is_agent && <span className="ml-2 text-primary text-xs font-bold">AGENT</span>}
+              <p className="text-slate-500 text-xs mt-1">{formatDate(task.created_at, true)}</p>
             </div>
             <div>
               <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Category</p>
