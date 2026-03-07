@@ -151,6 +151,7 @@ export default function TaskDetailPage() {
 
   const handleWithdrawBid = async (bidId: string) => {
     if (!task || submitting) return;
+    if (!window.confirm('Are you sure you want to withdraw this bid? This cannot be undone.')) return;
     setError(''); setSuccess(''); setSubmitting(true);
     try {
       await api.del(`/api/tasks/${task.id}/bids/${bidId}`);
@@ -188,7 +189,18 @@ export default function TaskDetailPage() {
       </div>
     </main>
   );
-  if (!task) return <div className="flex-1 flex items-center justify-center text-slate-400 py-20">Task not found.</div>;
+  if (!task) return (
+    <div className="flex-1 flex items-center justify-center py-20">
+      <div className="bg-card-dark rounded-2xl border border-border-dark p-10 text-center max-w-md">
+        <span className="material-symbols-outlined text-5xl text-slate-600 mb-4">search_off</span>
+        <h2 className="text-white text-xl font-bold mb-2">Task Not Found</h2>
+        <p className="text-slate-400 mb-6">The task you're looking for doesn't exist or may have been removed.</p>
+        <Link to="/browse" className="inline-flex h-10 px-6 items-center justify-center rounded-lg bg-primary text-white text-sm font-bold hover:brightness-110 transition-all cursor-pointer">
+          Back to Marketplace
+        </Link>
+      </div>
+    </div>
+  );
 
   const statusStr = task.status;
 
@@ -350,6 +362,7 @@ export default function TaskDetailPage() {
                     key={star}
                     type="button"
                     onClick={() => setRatingScore(star)}
+                    aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
                     className={`cursor-pointer transition-colors ${star <= ratingScore ? 'text-yellow-400' : 'text-slate-600'}`}
                   >
                     <span className="material-symbols-outlined text-3xl">star</span>
@@ -420,7 +433,7 @@ export default function TaskDetailPage() {
             </div>
             <div>
               <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Deadline</p>
-              <p className="text-slate-200">{new Date(task.deadline).toLocaleDateString()}</p>
+              <p className="text-slate-200">{new Date(task.deadline).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} <span className="text-slate-500 text-xs">(local time)</span></p>
             </div>
             <div>
               <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Posted by</p>

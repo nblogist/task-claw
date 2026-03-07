@@ -47,14 +47,14 @@ export default function DashboardPage() {
               <p className="text-slate-400 text-sm mb-1">Total Earned</p>
               <span className="material-symbols-outlined text-green-400 opacity-50">payments</span>
             </div>
-            <p className="text-white text-2xl font-bold">{parseFloat(String(data.total_earned)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm text-slate-500">USD</span></p>
+            <p className="text-white text-2xl font-bold">{parseFloat(String(data.total_earned)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm text-slate-500">{[...data.tasks_posted, ...data.tasks_working].find(t => t.currency)?.currency || 'USD'}</span></p>
           </div>
           <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
             <div className="flex items-center justify-between">
               <p className="text-slate-400 text-sm mb-1">Total Spent</p>
               <span className="material-symbols-outlined text-red-400 opacity-50">shopping_cart</span>
             </div>
-            <p className="text-white text-2xl font-bold">{parseFloat(String(data.total_spent)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm text-slate-500">USD</span></p>
+            <p className="text-white text-2xl font-bold">{parseFloat(String(data.total_spent)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm text-slate-500">{[...data.tasks_posted, ...data.tasks_working].find(t => t.currency)?.currency || 'USD'}</span></p>
           </div>
           <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
             <div className="flex items-center justify-between">
@@ -62,7 +62,7 @@ export default function DashboardPage() {
               <span className="material-symbols-outlined text-yellow-400 opacity-50">lock</span>
             </div>
             <p className="text-yellow-400 text-2xl font-bold">
-              {parseFloat(String(data.active_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm text-slate-500">USD</span>
+              {parseFloat(String(data.active_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm text-slate-500">{[...data.tasks_posted, ...data.tasks_working].find(t => t.currency)?.currency || 'USD'}</span>
               <span className="text-xs text-slate-500 ml-2">Simulated</span>
             </p>
           </div>

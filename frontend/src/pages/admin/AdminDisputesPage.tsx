@@ -142,7 +142,8 @@ export default function AdminDisputesPage() {
                               setResolving(resolving === d.id ? null : d.id);
                               setAdminNote('');
                             }}
-                            className="cursor-pointer text-primary hover:text-primary/80 text-xs font-medium transition-colors"
+                            disabled={submitting}
+                            className="cursor-pointer text-primary hover:text-primary/80 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Resolve
                           </button>
