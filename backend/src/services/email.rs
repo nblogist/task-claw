@@ -36,9 +36,13 @@ impl EmailService {
             .await
             .map_err(|e| format!("Failed to send email: {}", e))?;
 
-        if !res.status().is_success() {
-            let body = res.text().await.unwrap_or_default();
-            return Err(format!("Resend API error: {}", body));
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return Err(format!("Resend API error ({}): {}", status, body));
+        }
+        if !body.contains("\"id\"") {
+            eprintln!("[EMAIL WARNING] Resend returned {} but no id in response: {}", status, body);
         }
         Ok(())
     }

@@ -24,6 +24,12 @@ pub struct PortfolioItemWithRating {
     pub task_title: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct PortfolioListResponse {
+    pub items: Vec<PortfolioItemWithRating>,
+    pub total: i64,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreatePortfolioRequest {
     pub title: String,

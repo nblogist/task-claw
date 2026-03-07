@@ -4,6 +4,7 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::rating::*;
@@ -89,7 +90,7 @@ pub async fn submit_rating(
     .bind(auth.user_id)
     .bind(ratee_id)
     .bind(body.score)
-    .bind(&body.comment)
+    .bind(&body.comment.as_ref().map(|c| sanitize_html(c)))
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;

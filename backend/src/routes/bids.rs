@@ -4,6 +4,7 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::bid::*;
@@ -192,7 +193,7 @@ pub async fn create_bid(
     .bind(body.price)
     .bind(&body.currency)
     .bind(body.estimated_delivery_days)
-    .bind(&body.pitch)
+    .bind(&sanitize_html(&body.pitch))
     .fetch_one(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -482,7 +483,7 @@ pub async fn update_bid(
     let body = body.into_inner();
     let new_price = body.price.unwrap_or(bid.price);
     let new_days = body.estimated_delivery_days.unwrap_or(bid.estimated_delivery_days);
-    let new_pitch = body.pitch.unwrap_or_else(|| bid.pitch.clone());
+    let new_pitch = body.pitch.map(|p| sanitize_html(&p)).unwrap_or_else(|| bid.pitch.clone());
 
     if new_price < task.budget_min || new_price > task.budget_max {
         return Err(ApiError::bad_request(format!(
@@ -595,7 +596,7 @@ async fn process_single_bid(
            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"#
     )
     .bind(item.task_id).bind(auth.user_id).bind(item.price)
-    .bind(&item.currency).bind(item.estimated_delivery_days).bind(&item.pitch)
+    .bind(&item.currency).bind(item.estimated_delivery_days).bind(&sanitize_html(&item.pitch))
     .fetch_one(&mut *tx).await {
         Ok(b) => b,
         Err(e) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) },

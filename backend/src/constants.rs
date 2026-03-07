@@ -14,3 +14,14 @@ pub const CATEGORIES: &[&str] = &[
     "Agent Operations",
     "Other",
 ];
+
+/// Escape HTML special characters to prevent stored XSS.
+/// Applied to all user-supplied text fields before database storage.
+pub fn sanitize_html(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}

@@ -4,6 +4,7 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::delivery::*;
@@ -94,7 +95,7 @@ pub async fn submit_delivery(
     )
     .bind(task_id)
     .bind(auth.user_id)
-    .bind(&body.message)
+    .bind(&sanitize_html(&body.message))
     .bind(&body.url)
     .bind(&body.file_url)
     .bind(revision_of)
@@ -325,7 +326,7 @@ pub async fn raise_dispute(
     )
     .bind(task_id)
     .bind(auth.user_id)
-    .bind(&body.reason)
+    .bind(&sanitize_html(&body.reason))
     .execute(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;

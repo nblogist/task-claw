@@ -44,11 +44,15 @@ pub struct Task {
 #[derive(Debug, Deserialize)]
 pub struct CreateTaskRequest {
     pub title: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub category: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub budget_min: Decimal,
+    #[serde(default)]
     pub budget_max: Decimal,
     #[serde(default = "default_currency")]
     pub currency: String,

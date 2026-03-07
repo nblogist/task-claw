@@ -5,7 +5,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::constants::VALID_CURRENCIES;
+use crate::constants::{VALID_CURRENCIES, sanitize_html};
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::template::*;
@@ -52,8 +52,8 @@ pub async fn create_template(
            RETURNING *"#,
     )
     .bind(auth.user_id)
-    .bind(&body.name)
-    .bind(&body.description)
+    .bind(&sanitize_html(&body.name))
+    .bind(&sanitize_html(&body.description))
     .bind(&body.category)
     .bind(&body.tags)
     .bind(body.budget_min)

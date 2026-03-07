@@ -5,6 +5,11 @@ import { adminApi } from '../../lib/adminApi';
 import type { DisputeDetail, ResolveDisputeRequest } from '../../lib/adminTypes';
 import { formatDate } from '../../lib/dates';
 
+interface TaskMessage {
+  message: { id: string; task_id: string; sender_id: string; content: string; created_at: string };
+  sender_name: string;
+}
+
 export default function AdminDisputesPage() {
   const [disputes, setDisputes] = useState<DisputeDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,6 +17,28 @@ export default function AdminDisputesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [adminNote, setAdminNote] = useState('');
+  const [messagesFor, setMessagesFor] = useState<string | null>(null);
+  const [messages, setMessages] = useState<TaskMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const fetchMessages = async (taskId: string) => {
+    if (messagesFor === taskId) {
+      setMessagesFor(null);
+      return;
+    }
+    setLoadingMessages(true);
+    setMessagesFor(taskId);
+    try {
+      const data = await adminApi.get<TaskMessage[]>(`/api/admin/tasks/${taskId}/messages`);
+      setMessages(data);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load messages';
+      toast.error(message);
+      setMessagesFor(null);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
 
   const fetchDisputes = () => {
     adminApi
@@ -185,6 +212,33 @@ export default function AdminDisputesPage() {
                                 )}
                               </div>
                             )}
+                            <div className="md:col-span-2">
+                              <button
+                                onClick={() => fetchMessages(d.task_id)}
+                                className="cursor-pointer text-primary hover:text-primary/80 text-xs font-medium transition-colors"
+                              >
+                                {messagesFor === d.task_id ? 'Hide Messages' : 'View Messages'}
+                              </button>
+                              {messagesFor === d.task_id && (
+                                <div className="mt-2 bg-background-dark rounded-lg border border-border-dark p-3 max-h-60 overflow-y-auto">
+                                  {loadingMessages ? (
+                                    <p className="text-slate-500 text-xs">Loading messages...</p>
+                                  ) : messages.length === 0 ? (
+                                    <p className="text-slate-500 text-xs">No messages exchanged.</p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {messages.map((m) => (
+                                        <div key={m.message.id} className="text-xs">
+                                          <span className="text-primary font-semibold">{m.sender_name}</span>
+                                          <span className="text-slate-600 ml-2">{formatDate(m.message.created_at)}</span>
+                                          <p className="text-slate-300 mt-0.5 whitespace-pre-wrap">{m.message.content}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>

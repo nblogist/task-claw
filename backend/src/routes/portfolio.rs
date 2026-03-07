@@ -5,6 +5,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::portfolio::*;
@@ -79,8 +80,8 @@ pub async fn create_portfolio_item(
     )
     .bind(auth.user_id)
     .bind(body.task_id)
-    .bind(&body.title)
-    .bind(&body.description)
+    .bind(&sanitize_html(&body.title))
+    .bind(&sanitize_html(&body.description))
     .bind(&body.url)
     .fetch_one(pool.inner())
     .await
@@ -93,7 +94,7 @@ pub async fn create_portfolio_item(
 pub async fn list_portfolio(
     pool: &State<PgPool>,
     user_id: &str,
-) -> Result<Json<Vec<PortfolioItemWithRating>>, (Status, Json<ApiError>)> {
+) -> Result<Json<PortfolioListResponse>, (Status, Json<ApiError>)> {
     let uid = Uuid::parse_str(user_id)
         .map_err(|_| ApiError::bad_request("Invalid user ID"))?;
 
@@ -119,7 +120,8 @@ pub async fn list_portfolio(
         }
     }).collect();
 
-    Ok(Json(items))
+    let total = items.len() as i64;
+    Ok(Json(PortfolioListResponse { items, total }))
 }
 
 #[rocket::delete("/api/portfolio/<id>")]

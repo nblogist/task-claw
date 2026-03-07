@@ -4,6 +4,7 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::admin::AdminToken;
 use crate::guards::auth::AuthUser;
@@ -75,7 +76,7 @@ pub async fn send_message(
     )
     .bind(task_id)
     .bind(auth.user_id)
-    .bind(&body.content)
+    .bind(&sanitize_html(&body.content))
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;

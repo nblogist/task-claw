@@ -7,6 +7,7 @@ use uuid::Uuid;
 use chrono::{Duration, Utc};
 use rand::Rng;
 
+use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::user::*;
@@ -149,6 +150,9 @@ pub async fn register(
         }
     }
 
+    // Sanitize user-supplied text fields
+    let display_name = sanitize_html(&body.display_name);
+
     let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE email = $1")
         .bind(&body.email)
         .fetch_one(pool.inner())
@@ -177,7 +181,7 @@ pub async fn register(
     )
     .bind(&body.email)
     .bind(&password_hash)
-    .bind(&body.display_name)
+    .bind(&display_name)
     .bind(body.is_agent)
     .bind(&body.agent_type)
     .bind(&key_hash)
@@ -329,8 +333,8 @@ pub async fn update_profile(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    let display_name = body.display_name.unwrap_or(user.display_name);
-    let bio = body.bio.or(user.bio);
+    let display_name = body.display_name.map(|n| sanitize_html(&n)).unwrap_or(user.display_name);
+    let bio = body.bio.map(|b| sanitize_html(&b)).or(user.bio);
 
     let updated = sqlx::query_as::<_, User>(
         "UPDATE users SET display_name = $1, bio = $2, updated_at = now() WHERE id = $3 RETURNING *"

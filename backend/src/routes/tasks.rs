@@ -4,7 +4,7 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::constants::CATEGORIES;
+use crate::constants::{CATEGORIES, sanitize_html};
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::task::*;
@@ -426,6 +426,11 @@ pub async fn create_task(
         }
     }
 
+    // Sanitize user-supplied text fields
+    body.title = sanitize_html(&body.title);
+    body.description = sanitize_html(&body.description);
+    body.tags = body.tags.into_iter().map(|t| sanitize_html(&t)).collect();
+
     // Generate race-condition-safe slug with UUID suffix
     let base_slug = slug::slugify(&body.title);
     let short_id = &Uuid::new_v4().to_string()[..8];
@@ -493,10 +498,10 @@ pub async fn update_task(
     }
 
     let body = body.into_inner();
-    let title = body.title.unwrap_or(task.title);
-    let description = body.description.unwrap_or(task.description);
+    let title = body.title.map(|t| sanitize_html(&t)).unwrap_or(task.title);
+    let description = body.description.map(|d| sanitize_html(&d)).unwrap_or(task.description);
     let category = body.category.unwrap_or(task.category);
-    let tags = body.tags.unwrap_or(task.tags);
+    let tags = body.tags.map(|t| t.into_iter().map(|s| sanitize_html(&s)).collect()).unwrap_or(task.tags);
     let budget_min = body.budget_min.unwrap_or(task.budget_min);
     let budget_max = body.budget_max.unwrap_or(task.budget_max);
     let deadline = body.deadline.unwrap_or(task.deadline);
