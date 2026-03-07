@@ -33,6 +33,7 @@ pub struct DashboardResponse {
     pub active_escrow: Decimal,
     pub page: i64,
     pub per_page: i64,
+    pub generated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[rocket::get("/api/dashboard?<page>&<per_page>")]
@@ -115,5 +116,6 @@ pub async fn dashboard(
         active_escrow,
         page,
         per_page,
+        generated_at: chrono::Utc::now(),
     }))
 }

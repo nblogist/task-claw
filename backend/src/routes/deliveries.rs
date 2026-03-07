@@ -297,6 +297,10 @@ pub async fn raise_dispute(
 
     let body = body.into_inner();
 
+    if body.reason.is_empty() || body.reason.len() > 2000 {
+        return Err(ApiError::bad_request("Dispute reason must be 1-2000 characters"));
+    }
+
     let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     // Create dispute record

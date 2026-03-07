@@ -13,6 +13,18 @@ use crate::models::task::{TaskStatus, TaskListResponse, TaskSummary};
 use crate::models::user::PublicUser;
 use crate::services::task_lifecycle::can_transition;
 
+async fn audit_log(pool: &PgPool, action: &str, target_type: &str, target_id: Uuid, details: Option<serde_json::Value>) {
+    let _ = sqlx::query(
+        "INSERT INTO admin_audit_log (action, target_type, target_id, details) VALUES ($1, $2, $3, $4)"
+    )
+    .bind(action)
+    .bind(target_type)
+    .bind(target_id)
+    .bind(details)
+    .execute(pool)
+    .await;
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct AdminStatsRow {
     total_tasks: i64,
@@ -176,13 +188,23 @@ pub async fn list_disputes(
             t.buyer_id, buyer.display_name AS buyer_name,
             e.seller_id, seller.display_name AS seller_name,
             e.amount AS escrow_amount,
-            b.price AS bid_price, b.pitch AS bid_pitch
+            b.price AS bid_price, b.pitch AS bid_pitch,
+            latest_delivery.message AS delivery_message,
+            latest_delivery.url AS delivery_url,
+            COALESCE(dc.cnt, 0) AS delivery_count
         FROM disputes d
         JOIN tasks t ON d.task_id = t.id
         JOIN users buyer ON t.buyer_id = buyer.id
         JOIN escrow e ON e.task_id = t.id
         JOIN users seller ON e.seller_id = seller.id
         LEFT JOIN bids b ON b.id = t.accepted_bid_id
+        LEFT JOIN LATERAL (
+            SELECT message, url FROM deliveries
+            WHERE task_id = t.id ORDER BY created_at DESC LIMIT 1
+        ) latest_delivery ON true
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*) AS cnt FROM deliveries WHERE task_id = t.id
+        ) dc ON true
         ORDER BY d.created_at DESC"#,
     )
     .fetch_all(pool.inner())
@@ -275,6 +297,9 @@ pub async fn resolve_dispute(
 
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
+    audit_log(pool.inner(), "resolve_dispute", "dispute", dispute_id,
+        Some(json!({"favor": body.favor, "admin_note": body.admin_note, "task_id": task_id.to_string()}))).await;
+
     Ok(Json(json!({"message": "Dispute resolved", "favor": body.favor})))
 }
 
@@ -341,6 +366,8 @@ pub async fn remove_task(
 
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
+    audit_log(pool.inner(), "remove_task", "task", task_id, None).await;
+
     Ok(Json(json!({"message": "Task removed"})))
 }
 
@@ -365,5 +392,33 @@ pub async fn ban_user(
         return Err(ApiError::not_found("User not found"));
     }
 
+    audit_log(pool.inner(), "ban_user", "user", user_id, None).await;
+
     Ok(Json(json!({"message": "User banned"})))
+}
+
+#[post("/api/admin/users/<id>/unban")]
+pub async fn unban_user(
+    _admin: AdminToken,
+    pool: &State<PgPool>,
+    id: &str,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    let user_id = Uuid::parse_str(id)
+        .map_err(|_| ApiError::bad_request("Invalid user ID"))?;
+
+    let result = sqlx::query(
+        "UPDATE users SET is_banned = false, updated_at = now() WHERE id = $1"
+    )
+    .bind(user_id)
+    .execute(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found("User not found"));
+    }
+
+    audit_log(pool.inner(), "unban_user", "user", user_id, None).await;
+
+    Ok(Json(json!({"message": "User unbanned"})))
 }

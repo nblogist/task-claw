@@ -9,20 +9,47 @@ use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::notification::{Notification, UnreadCountResponse};
 
-#[rocket::get("/api/notifications")]
+#[derive(serde::Serialize)]
+pub struct NotificationListResponse {
+    pub notifications: Vec<Notification>,
+    pub page: i64,
+    pub per_page: i64,
+}
+
+#[rocket::get("/api/notifications?<page>&<per_page>&<since>&<kind>")]
 pub async fn list_notifications(
     pool: &State<PgPool>,
     auth: AuthUser,
-) -> Result<Json<Vec<Notification>>, (Status, Json<ApiError>)> {
+    page: Option<i64>,
+    per_page: Option<i64>,
+    since: Option<String>,
+    kind: Option<String>,
+) -> Result<Json<NotificationListResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(50).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+
+    let since_dt: Option<chrono::DateTime<chrono::Utc>> = since.as_ref().and_then(|s| s.parse().ok());
+    let kind_filter = kind.as_deref().unwrap_or("");
+
     let notifications = sqlx::query_as::<_, Notification>(
-        "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
+        r#"SELECT * FROM notifications
+           WHERE user_id = $1
+           AND ($2::timestamptz IS NULL OR created_at > $2)
+           AND ($3 = '' OR kind::text = $3)
+           ORDER BY created_at DESC
+           LIMIT $4 OFFSET $5"#
     )
     .bind(auth.user_id)
+    .bind(since_dt)
+    .bind(kind_filter)
+    .bind(per_page)
+    .bind(offset)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    Ok(Json(notifications))
+    Ok(Json(NotificationListResponse { notifications, page, per_page }))
 }
 
 #[rocket::get("/api/notifications/unread-count")]

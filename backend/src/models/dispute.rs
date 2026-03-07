@@ -55,6 +55,9 @@ pub struct DisputeDetail {
     pub escrow_amount: Option<Decimal>,
     pub bid_price: Option<Decimal>,
     pub bid_pitch: Option<String>,
+    pub delivery_message: Option<String>,
+    pub delivery_url: Option<String>,
+    pub delivery_count: i64,
 }
 
 #[derive(Debug, Deserialize)]

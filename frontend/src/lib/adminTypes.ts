@@ -26,6 +26,9 @@ export interface DisputeDetail {
   escrow_amount: number | string | null;
   bid_price: number | string | null;
   bid_pitch: string | null;
+  delivery_message: string | null;
+  delivery_url: string | null;
+  delivery_count: number;
 }
 
 export interface ResolveDisputeRequest {

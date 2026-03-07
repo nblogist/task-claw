@@ -90,6 +90,7 @@ async fn rocket() -> _ {
             routes::admin::resolve_dispute,
             routes::admin::remove_task,
             routes::admin::ban_user,
+            routes::admin::unban_user,
             routes::users::forgot_password,
             routes::users::reset_password,
             routes::users::send_verification,

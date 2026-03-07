@@ -53,7 +53,7 @@ struct TaskWithBuyerRow {
     buyer_created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[rocket::get("/api/tasks?<status>&<category>&<min_budget>&<max_budget>&<currency>&<search>&<sort>&<page>&<per_page>")]
+#[rocket::get("/api/tasks?<status>&<category>&<min_budget>&<max_budget>&<currency>&<search>&<tag>&<sort>&<page>&<per_page>")]
 pub async fn list_tasks(
     pool: &State<PgPool>,
     status: Option<String>,
@@ -62,6 +62,7 @@ pub async fn list_tasks(
     max_budget: Option<String>,
     currency: Option<String>,
     search: Option<String>,
+    tag: Option<String>,
     sort: Option<String>,
     page: Option<i64>,
     per_page: Option<i64>,
@@ -75,6 +76,7 @@ pub async fn list_tasks(
     let category_filter = category.as_deref().unwrap_or("");
     let currency_filter = currency.as_deref().unwrap_or("");
     let search_filter = search.as_deref().unwrap_or("");
+    let tag_filter = tag.as_deref().unwrap_or("");
 
     let min_budget_val: Option<rust_decimal::Decimal> = min_budget.as_ref().and_then(|v| v.parse().ok());
     let max_budget_val: Option<rust_decimal::Decimal> = max_budget.as_ref().and_then(|v| v.parse().ok());
@@ -96,7 +98,8 @@ pub async fn list_tasks(
             AND ($3 = '' OR t.currency = $3)
             AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%')
             AND ($5::numeric IS NULL OR t.budget_max >= $5)
-            AND ($6::numeric IS NULL OR t.budget_min <= $6)"#
+            AND ($6::numeric IS NULL OR t.budget_min <= $6)
+            AND ($7 = '' OR $7 = ANY(t.tags))"#
         ),
     )
     .bind(status_filter)
@@ -105,6 +108,7 @@ pub async fn list_tasks(
     .bind(search_filter)
     .bind(min_budget_val)
     .bind(max_budget_val)
+    .bind(tag_filter)
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -130,8 +134,9 @@ pub async fn list_tasks(
             AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%')
             AND ($5::numeric IS NULL OR t.budget_max >= $5)
             AND ($6::numeric IS NULL OR t.budget_min <= $6)
+            AND ($7 = '' OR $7 = ANY(t.tags))
             ORDER BY {}
-            LIMIT $7 OFFSET $8"#,
+            LIMIT $8 OFFSET $9"#,
             order_by
         ),
     )
@@ -141,6 +146,7 @@ pub async fn list_tasks(
     .bind(search_filter)
     .bind(min_budget_val)
     .bind(max_budget_val)
+    .bind(tag_filter)
     .bind(per_page)
     .bind(offset)
     .fetch_all(pool.inner())

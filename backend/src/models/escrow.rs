@@ -27,4 +27,12 @@ pub struct Escrow {
     pub locked_at: DateTime<Utc>,
     pub released_at: Option<DateTime<Utc>>,
     pub tx_hash: Option<String>,
+    /// Always true for v1 — escrow is simulated (DB ledger only, no real funds)
+    #[sqlx(skip)]
+    #[serde(default = "default_simulated")]
+    pub simulated: bool,
+}
+
+fn default_simulated() -> bool {
+    true
 }

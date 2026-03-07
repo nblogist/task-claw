@@ -170,6 +170,19 @@ export default function AdminDisputesPage() {
                                 )}
                               </div>
                             )}
+                            {d.delivery_message && (
+                              <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold mb-1">
+                                  Latest Delivery ({d.delivery_count} total)
+                                </p>
+                                <p className="text-slate-300 mb-1">{d.delivery_message}</p>
+                                {d.delivery_url && (
+                                  <a href={d.delivery_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">
+                                    {d.delivery_url}
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

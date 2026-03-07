@@ -148,6 +148,13 @@ pub async fn create_bid(
         return Err(ApiError::bad_request("Task is not accepting bids"));
     }
 
+    // Currency must match task currency
+    if body.currency != task.currency {
+        return Err(ApiError::bad_request(format!(
+            "Bid currency must match task currency ({})", task.currency
+        )));
+    }
+
     // Price must be within budget range
     if body.price < task.budget_min || body.price > task.budget_max {
         return Err(ApiError::bad_request(format!(

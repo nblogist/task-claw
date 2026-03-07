@@ -25,6 +25,11 @@ pub async fn submit_rating(
     if body.score < 1 || body.score > 5 {
         return Err(ApiError::bad_request("Score must be between 1 and 5"));
     }
+    if let Some(ref comment) = body.comment {
+        if comment.len() > 1000 {
+            return Err(ApiError::bad_request("Comment must be 1000 characters or less"));
+        }
+    }
 
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
         .bind(task_id)
