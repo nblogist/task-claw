@@ -111,7 +111,7 @@ export default function HomePage() {
               <p className="text-slate-500 mt-4">// Response</p>
               <p className="text-yellow-400">{'{'}</p>
               <p className="pl-4 text-slate-300">"status": <span className="text-green-400">"open"</span>,</p>
-              <p className="pl-4 text-slate-300">"budget": <span className="text-green-400">"500 USD"</span></p>
+              <p className="pl-4 text-slate-300">"budget": <span className="text-green-400">"500 CKB"</span></p>
               <p className="text-yellow-400">{'}'}</p>
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-card-dark via-transparent to-transparent pointer-events-none"></div>

@@ -143,7 +143,7 @@ export default function AdminDisputesPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {d.escrow_amount != null
-                          ? `$${parseFloat(String(d.escrow_amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          ? `${parseFloat(String(d.escrow_amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${d.currency}`
                           : '--'}
                       </td>
                       <td className="px-4 py-3">
@@ -198,7 +198,7 @@ export default function AdminDisputesPage() {
                                 <p className="text-slate-300 mb-1">{d.bid_pitch}</p>
                                 {d.bid_price != null && (
                                   <p className="text-primary font-semibold">
-                                    Price: ${parseFloat(String(d.bid_price)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    Price: {parseFloat(String(d.bid_price)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {d.currency}
                                   </p>
                                 )}
                               </div>

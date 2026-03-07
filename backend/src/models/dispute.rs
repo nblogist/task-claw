@@ -63,6 +63,7 @@ pub struct DisputeDetail {
     pub delivery_message: Option<String>,
     pub delivery_url: Option<String>,
     pub delivery_count: i64,
+    pub currency: String,
 }
 
 #[derive(Debug, Deserialize)]

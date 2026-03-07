@@ -195,7 +195,8 @@ pub async fn list_disputes(
             b.price AS bid_price, b.pitch AS bid_pitch,
             latest_delivery.message AS delivery_message,
             latest_delivery.url AS delivery_url,
-            COALESCE(dc.cnt, 0) AS delivery_count
+            COALESCE(dc.cnt, 0) AS delivery_count,
+            t.currency
         FROM disputes d
         JOIN tasks t ON d.task_id = t.id
         JOIN users buyer ON t.buyer_id = buyer.id

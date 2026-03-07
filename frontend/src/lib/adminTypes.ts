@@ -29,6 +29,7 @@ export interface DisputeDetail {
   delivery_message: string | null;
   delivery_url: string | null;
   delivery_count: number;
+  currency: string;
 }
 
 export interface ResolveDisputeRequest {

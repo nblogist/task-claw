@@ -14,7 +14,7 @@ const statCards = [
 
 function formatValue(value: number | string, isCurrency?: boolean): string {
   const num = parseFloat(String(value));
-  if (isCurrency) return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (isCurrency) return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return String(num);
 }
 
