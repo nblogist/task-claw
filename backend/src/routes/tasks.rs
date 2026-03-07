@@ -34,6 +34,7 @@ struct TaskWithBuyerRow {
     currency: String,
     deadline: chrono::DateTime<chrono::Utc>,
     status: TaskStatus,
+    priority: String,
     accepted_bid_id: Option<Uuid>,
     specifications: Option<serde_json::Value>,
     view_count: i32,
@@ -53,9 +54,10 @@ struct TaskWithBuyerRow {
     buyer_created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[rocket::get("/api/tasks?<status>&<category>&<min_budget>&<max_budget>&<currency>&<search>&<tag>&<sort>&<page>&<per_page>")]
+#[rocket::get("/api/tasks?<status>&<category>&<min_budget>&<max_budget>&<currency>&<search>&<tag>&<priority>&<sort>&<page>&<per_page>")]
 pub async fn list_tasks(
     pool: &State<PgPool>,
+    auth: Option<AuthUser>,
     status: Option<String>,
     category: Option<String>,
     min_budget: Option<String>,
@@ -63,6 +65,7 @@ pub async fn list_tasks(
     currency: Option<String>,
     search: Option<String>,
     tag: Option<String>,
+    priority: Option<String>,
     sort: Option<String>,
     page: Option<i64>,
     per_page: Option<i64>,
@@ -76,7 +79,16 @@ pub async fn list_tasks(
     let category_filter = category.as_deref().unwrap_or("");
     let currency_filter = currency.as_deref().unwrap_or("");
     let search_filter = search.as_deref().unwrap_or("");
-    let tag_filter = tag.as_deref().unwrap_or("");
+    let priority_filter = priority.as_deref().unwrap_or("");
+
+    // Multi-tag support: comma-separated tags (e.g. tag=scraping,analysis)
+    let tag_list: Vec<String> = tag.as_deref()
+        .unwrap_or("")
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let has_tags = !tag_list.is_empty();
 
     let min_budget_val: Option<rust_decimal::Decimal> = min_budget.as_ref().and_then(|v| v.parse().ok());
     let max_budget_val: Option<rust_decimal::Decimal> = max_budget.as_ref().and_then(|v| v.parse().ok());
@@ -86,6 +98,7 @@ pub async fn list_tasks(
         Some("budget_desc") => "t.budget_max DESC",
         Some("deadline") => "t.deadline ASC",
         Some("oldest") => "t.created_at ASC",
+        Some("priority") => "CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 END ASC, t.created_at DESC",
         _ => "t.created_at DESC",
     };
 
@@ -99,7 +112,8 @@ pub async fn list_tasks(
             AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%')
             AND ($5::numeric IS NULL OR t.budget_max >= $5)
             AND ($6::numeric IS NULL OR t.budget_min <= $6)
-            AND ($7 = '' OR $7 = ANY(t.tags))"#
+            AND ($7::boolean = false OR t.tags @> $8::text[])
+            AND ($9 = '' OR t.priority = $9)"#
         ),
     )
     .bind(status_filter)
@@ -108,7 +122,9 @@ pub async fn list_tasks(
     .bind(search_filter)
     .bind(min_budget_val)
     .bind(max_budget_val)
-    .bind(tag_filter)
+    .bind(has_tags)
+    .bind(&tag_list)
+    .bind(priority_filter)
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -134,9 +150,10 @@ pub async fn list_tasks(
             AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%')
             AND ($5::numeric IS NULL OR t.budget_max >= $5)
             AND ($6::numeric IS NULL OR t.budget_min <= $6)
-            AND ($7 = '' OR $7 = ANY(t.tags))
+            AND ($7::boolean = false OR t.tags @> $8::text[])
+            AND ($9 = '' OR t.priority = $9)
             ORDER BY {}
-            LIMIT $8 OFFSET $9"#,
+            LIMIT $10 OFFSET $11"#,
             order_by
         ),
     )
@@ -146,7 +163,9 @@ pub async fn list_tasks(
     .bind(search_filter)
     .bind(min_budget_val)
     .bind(max_budget_val)
-    .bind(tag_filter)
+    .bind(has_tags)
+    .bind(&tag_list)
+    .bind(priority_filter)
     .bind(per_page)
     .bind(offset)
     .fetch_all(pool.inner())
@@ -178,9 +197,11 @@ pub async fn list_tasks(
             currency: row.currency.clone(),
             deadline: row.deadline,
             status: row.status.clone(),
+            priority: row.priority.clone(),
             view_count: row.view_count,
             bid_count: Some(row.bid_count),
             buyer,
+            is_mine: auth.as_ref().map(|a| a.user_id == row.buyer_id),
             created_at: row.created_at,
         }
     }).collect();
@@ -327,17 +348,43 @@ pub async fn list_categories(
     Ok(Json(result))
 }
 
-#[rocket::post("/api/tasks", data = "<body>")]
+#[rocket::post("/api/tasks?<template_id>", data = "<body>")]
 pub async fn create_task(
     pool: &State<PgPool>,
     limiter: &State<RateLimiter>,
     auth: AuthUser,
+    template_id: Option<String>,
     body: Json<CreateTaskRequest>,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
-    if !limiter.check(&format!("create_task:{}", auth.user_id)) {
+    if !limiter.check_with_limit(&format!("create_task:{}", auth.user_id), 20).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
-    let body = body.into_inner();
+    let mut body = body.into_inner();
+
+    // If template_id is provided, load template and use its fields as defaults
+    if let Some(ref tid) = template_id {
+        let tmpl_id = Uuid::parse_str(tid)
+            .map_err(|_| ApiError::bad_request("Invalid template_id"))?;
+        let tmpl = sqlx::query_as::<_, crate::models::template::TaskTemplate>(
+            "SELECT * FROM task_templates WHERE id = $1 AND user_id = $2"
+        )
+        .bind(tmpl_id)
+        .bind(auth.user_id)
+        .fetch_optional(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?
+        .ok_or_else(|| ApiError::not_found("Template not found"))?;
+
+        // Template fields serve as defaults — body fields override
+        if body.description.is_empty() { body.description = tmpl.description; }
+        if body.category.is_empty() { body.category = tmpl.category; }
+        if body.tags.is_empty() { body.tags = tmpl.tags; }
+        if body.currency == "CKB" && tmpl.currency != "CKB" { body.currency = tmpl.currency; }
+        if body.priority.as_deref() == Some("normal") { body.priority = Some(tmpl.priority); }
+        if body.budget_min == rust_decimal::Decimal::ZERO { if let Some(v) = tmpl.budget_min { body.budget_min = v; } }
+        if body.budget_max == rust_decimal::Decimal::ZERO { if let Some(v) = tmpl.budget_max { body.budget_max = v; } }
+        if body.specifications.is_none() { body.specifications = tmpl.specifications; }
+    }
 
     // Validate
     if body.title.is_empty() || body.title.len() > 120 {
@@ -361,6 +408,14 @@ pub async fn create_task(
     if !CATEGORIES.contains(&body.category.as_str()) {
         return Err(ApiError::bad_request(format!("Invalid category. Must be one of: {}", CATEGORIES.join(", "))));
     }
+    if !crate::constants::VALID_CURRENCIES.contains(&body.currency.as_str()) {
+        return Err(ApiError::bad_request(format!("Invalid currency. Must be one of: {}", crate::constants::VALID_CURRENCIES.join(", "))));
+    }
+    let priority = body.priority.as_deref().unwrap_or("normal");
+    let valid_priorities = ["low", "normal", "high", "urgent"];
+    if !valid_priorities.contains(&priority) {
+        return Err(ApiError::bad_request("Priority must be one of: low, normal, high, urgent"));
+    }
     // X08: Tag count and length validation
     if body.tags.len() > 10 {
         return Err(ApiError::bad_request("Maximum 10 tags allowed"));
@@ -380,8 +435,8 @@ pub async fn create_task(
     let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     let task = sqlx::query_as::<_, Task>(
-        r#"INSERT INTO tasks (slug, buyer_id, title, description, category, tags, budget_min, budget_max, currency, deadline, specifications)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        r#"INSERT INTO tasks (slug, buyer_id, title, description, category, tags, budget_min, budget_max, currency, deadline, priority, specifications)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
            RETURNING *"#,
     )
     .bind(&task_slug)
@@ -394,6 +449,7 @@ pub async fn create_task(
     .bind(body.budget_max)
     .bind(&body.currency)
     .bind(body.deadline)
+    .bind(priority)
     .bind(&body.specifications)
     .fetch_one(&mut *tx)
     .await

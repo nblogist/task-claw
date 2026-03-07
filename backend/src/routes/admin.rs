@@ -76,6 +76,7 @@ struct AdminTaskRow {
     currency: String,
     deadline: chrono::DateTime<chrono::Utc>,
     status: TaskStatus,
+    priority: String,
     view_count: i32,
     created_at: chrono::DateTime<chrono::Utc>,
     bid_count: i64,
@@ -116,7 +117,7 @@ pub async fn admin_list_tasks(
     let rows = sqlx::query_as::<_, AdminTaskRow>(
         r#"SELECT t.id, t.slug, t.title, t.category, t.tags,
                 t.budget_min, t.budget_max, t.currency, t.deadline,
-                t.status, t.view_count, t.created_at,
+                t.status, t.priority, t.view_count, t.created_at,
                 (SELECT COUNT(*) FROM bids WHERE task_id = t.id) AS bid_count,
                 u.id AS buyer_uuid, u.display_name AS buyer_display_name,
                 u.is_agent AS buyer_is_agent, u.agent_type AS buyer_agent_type,
@@ -160,9 +161,11 @@ pub async fn admin_list_tasks(
             currency: row.currency,
             deadline: row.deadline,
             status: row.status,
+            priority: row.priority,
             view_count: row.view_count,
             bid_count: Some(row.bid_count),
             buyer,
+            is_mine: None,
             created_at: row.created_at,
         }
     }).collect();

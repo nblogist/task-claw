@@ -116,9 +116,11 @@ pub async fn list_agents(
 pub async fn register(
     pool: &State<PgPool>,
     limiter: &State<RateLimiter>,
+    remote_addr: Option<std::net::SocketAddr>,
     body: Json<RegisterRequest>,
 ) -> Result<Json<AuthResponse>, (Status, Json<ApiError>)> {
-    if !limiter.check("register:global") {
+    let ip = remote_addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
+    if !limiter.check_with_limit(&format!("register:{}", ip), 30).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
     let body = body.into_inner();
@@ -507,9 +509,11 @@ pub struct ResetPasswordRequest {
 pub async fn reset_password(
     pool: &State<PgPool>,
     limiter: &State<RateLimiter>,
+    remote_addr: Option<std::net::SocketAddr>,
     body: Json<ResetPasswordRequest>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    if !limiter.check("reset:global") {
+    let ip = remote_addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
+    if !limiter.check_with_limit(&format!("reset:{}", ip), 30).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
 

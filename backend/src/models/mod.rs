@@ -7,3 +7,6 @@ pub mod rating;
 pub mod dispute;
 pub mod notification;
 pub mod webhook;
+pub mod message;
+pub mod template;
+pub mod portfolio;

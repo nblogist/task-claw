@@ -113,7 +113,7 @@ pub async fn create_bid(
     id: &str,
     body: Json<CreateBidRequest>,
 ) -> Result<Json<Bid>, (Status, Json<ApiError>)> {
-    if !limiter.check(&format!("create_bid:{}", auth.user_id)) {
+    if !limiter.check_with_limit(&format!("create_bid:{}", auth.user_id), 20).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
     let task_id = Uuid::parse_str(id)
@@ -127,6 +127,9 @@ pub async fn create_bid(
     }
     if body.estimated_delivery_days < 1 || body.estimated_delivery_days > 365 {
         return Err(ApiError::bad_request("Estimated delivery days must be between 1 and 365"));
+    }
+    if !crate::constants::VALID_CURRENCIES.contains(&body.currency.as_str()) {
+        return Err(ApiError::bad_request(format!("Invalid currency. Must be one of: {}", crate::constants::VALID_CURRENCIES.join(", "))));
     }
 
     let task = sqlx::query_as::<_, Task>(
@@ -426,4 +429,190 @@ pub async fn withdraw_bid(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(updated))
+}
+
+#[rocket::put("/api/tasks/<task_id>/bids/<bid_id>", data = "<body>")]
+pub async fn update_bid(
+    pool: &State<PgPool>,
+    limiter: &State<RateLimiter>,
+    auth: AuthUser,
+    task_id: &str,
+    bid_id: &str,
+    body: Json<UpdateBidRequest>,
+) -> Result<Json<Bid>, (Status, Json<ApiError>)> {
+    if !limiter.check_with_limit(&format!("update_bid:{}", auth.user_id), 20).allowed {
+        return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
+    }
+
+    let task_id = Uuid::parse_str(task_id)
+        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let bid_id = Uuid::parse_str(bid_id)
+        .map_err(|_| ApiError::bad_request("Invalid bid ID"))?;
+
+    let bid = sqlx::query_as::<_, Bid>(
+        "SELECT * FROM bids WHERE id = $1 AND task_id = $2"
+    )
+    .bind(bid_id)
+    .bind(task_id)
+    .fetch_optional(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?
+    .ok_or_else(|| ApiError::not_found("Bid not found"))?;
+
+    if bid.seller_id != auth.user_id {
+        return Err(ApiError::forbidden("Only the bidder can update their bid"));
+    }
+    if bid.status != BidStatus::Pending {
+        return Err(ApiError::bad_request("Can only update pending bids"));
+    }
+
+    let task = sqlx::query_as::<_, Task>(
+        "SELECT * FROM tasks WHERE id = $1"
+    )
+    .bind(task_id)
+    .fetch_optional(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?
+    .ok_or_else(|| ApiError::not_found("Task not found"))?;
+
+    if task.status != TaskStatus::Open && task.status != TaskStatus::Bidding {
+        return Err(ApiError::bad_request("Task is no longer accepting bids"));
+    }
+
+    let body = body.into_inner();
+    let new_price = body.price.unwrap_or(bid.price);
+    let new_days = body.estimated_delivery_days.unwrap_or(bid.estimated_delivery_days);
+    let new_pitch = body.pitch.unwrap_or_else(|| bid.pitch.clone());
+
+    if new_price < task.budget_min || new_price > task.budget_max {
+        return Err(ApiError::bad_request(format!(
+            "Price must be between {} and {}", task.budget_min, task.budget_max
+        )));
+    }
+    if new_pitch.is_empty() || new_pitch.len() > 500 {
+        return Err(ApiError::bad_request("Pitch must be 1-500 characters"));
+    }
+    if new_days < 1 || new_days > 365 {
+        return Err(ApiError::bad_request("Estimated delivery days must be between 1 and 365"));
+    }
+
+    let updated = sqlx::query_as::<_, Bid>(
+        "UPDATE bids SET price = $1, estimated_delivery_days = $2, pitch = $3, updated_at = now() WHERE id = $4 RETURNING *"
+    )
+    .bind(new_price)
+    .bind(new_days)
+    .bind(&new_pitch)
+    .bind(bid_id)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // Notify buyer about updated bid
+    create_notification(pool.inner(), task.buyer_id, "bid_received", &format!("A bid on \"{}\" was updated", task.title), Some(task.id)).await;
+
+    Ok(Json(updated))
+}
+
+#[rocket::post("/api/bids/batch", data = "<body>")]
+pub async fn batch_bid(
+    pool: &State<PgPool>,
+    limiter: &State<RateLimiter>,
+    auth: AuthUser,
+    body: Json<BatchBidRequest>,
+) -> Result<Json<Vec<BatchBidResult>>, (Status, Json<ApiError>)> {
+    if !limiter.check_with_limit(&format!("batch_bid:{}", auth.user_id), 5).allowed {
+        return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
+    }
+
+    let body = body.into_inner();
+    if body.bids.is_empty() {
+        return Err(ApiError::bad_request("At least one bid is required"));
+    }
+    if body.bids.len() > 10 {
+        return Err(ApiError::bad_request("Maximum 10 bids per batch request"));
+    }
+
+    let mut results = Vec::new();
+
+    for item in body.bids {
+        let result = process_single_bid(pool.inner(), &auth, &item).await;
+        results.push(result);
+    }
+
+    Ok(Json(results))
+}
+
+async fn process_single_bid(
+    pool: &PgPool,
+    auth: &AuthUser,
+    item: &BatchBidItem,
+) -> BatchBidResult {
+    // Validate
+    if item.pitch.is_empty() || item.pitch.len() > 500 {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Pitch must be 1-500 characters".into()) };
+    }
+    if item.estimated_delivery_days < 1 || item.estimated_delivery_days > 365 {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Delivery days must be 1-365".into()) };
+    }
+    if !crate::constants::VALID_CURRENCIES.contains(&item.currency.as_str()) {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Invalid currency".into()) };
+    }
+
+    let task = match sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
+        .bind(item.task_id).fetch_optional(pool).await {
+        Ok(Some(t)) => t,
+        Ok(None) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Task not found".into()) },
+        Err(e) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) },
+    };
+
+    if task.buyer_id == auth.user_id {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Cannot bid on own task".into()) };
+    }
+    if task.status != TaskStatus::Open && task.status != TaskStatus::Bidding {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Task not accepting bids".into()) };
+    }
+    if item.currency != task.currency {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(format!("Currency must match task ({})", task.currency)) };
+    }
+    if item.price < task.budget_min || item.price > task.budget_max {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(format!("Price must be {}-{}", task.budget_min, task.budget_max)) };
+    }
+
+    // Check duplicate
+    let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM bids WHERE task_id = $1 AND seller_id = $2")
+        .bind(item.task_id).bind(auth.user_id).fetch_one(pool).await.unwrap_or(0);
+    if existing > 0 {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Already bid on this task".into()) };
+    }
+
+    let mut tx = match sqlx::Pool::begin(pool).await {
+        Ok(tx) => tx,
+        Err(e) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) },
+    };
+
+    let bid = match sqlx::query_as::<_, Bid>(
+        r#"INSERT INTO bids (task_id, seller_id, price, currency, estimated_delivery_days, pitch)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"#
+    )
+    .bind(item.task_id).bind(auth.user_id).bind(item.price)
+    .bind(&item.currency).bind(item.estimated_delivery_days).bind(&item.pitch)
+    .fetch_one(&mut *tx).await {
+        Ok(b) => b,
+        Err(e) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) },
+    };
+
+    // Transition open -> bidding
+    if task.status == TaskStatus::Open {
+        let _ = sqlx::query("UPDATE tasks SET status = 'bidding', updated_at = now() WHERE id = $1")
+            .bind(item.task_id).execute(&mut *tx).await;
+    }
+
+    if let Err(e) = tx.commit().await {
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) };
+    }
+
+    // Notify buyer
+    create_notification(pool, task.buyer_id, "bid_received", &format!("New bid received on \"{}\"", task.title), Some(task.id)).await;
+
+    BatchBidResult { task_id: item.task_id, success: true, bid: Some(bid), error: None }
 }

@@ -170,8 +170,7 @@ fn generate_webhook_secret() -> String {
     format!("whsec_{}", hex::encode(bytes))
 }
 
-/// Fire webhooks for a given user and event. Called from notification creation.
-/// Runs asynchronously via tokio::spawn — fire and forget.
+/// Fire webhooks for a given user and event. Records delivery attempts and retries on failure.
 pub fn fire_webhooks(pool: PgPool, user_id: Uuid, event: String, payload: serde_json::Value) {
     tokio::spawn(async move {
         let webhooks = sqlx::query_as::<_, Webhook>(
@@ -203,7 +202,7 @@ pub fn fire_webhooks(pool: PgPool, user_id: Uuid, event: String, payload: serde_
             let body_str = body.to_string();
             let signature = compute_hmac(&wh.secret, &body_str);
 
-            let _ = client
+            let result = client
                 .post(&wh.url)
                 .header("Content-Type", "application/json")
                 .header("X-TaskClaw-Signature", &signature)
@@ -211,8 +210,144 @@ pub fn fire_webhooks(pool: PgPool, user_id: Uuid, event: String, payload: serde_
                 .body(body_str)
                 .send()
                 .await;
+
+            match result {
+                Ok(resp) if resp.status().is_success() => {
+                    let _ = sqlx::query(
+                        r#"INSERT INTO webhook_deliveries (webhook_id, event, payload, status, attempts, delivered_at)
+                           VALUES ($1, $2, $3, 'delivered', 1, now())"#
+                    ).bind(wh.id).bind(&event).bind(&payload).execute(&pool).await;
+                }
+                Ok(resp) => {
+                    let error_msg = format!("HTTP {}", resp.status());
+                    let _ = sqlx::query(
+                        r#"INSERT INTO webhook_deliveries (webhook_id, event, payload, status, attempts, last_error, next_retry_at)
+                           VALUES ($1, $2, $3, 'pending', 1, $4, now() + interval '10 seconds')"#
+                    ).bind(wh.id).bind(&event).bind(&payload).bind(&error_msg).execute(&pool).await;
+                }
+                Err(e) => {
+                    let error_msg = e.to_string();
+                    let _ = sqlx::query(
+                        r#"INSERT INTO webhook_deliveries (webhook_id, event, payload, status, attempts, last_error, next_retry_at)
+                           VALUES ($1, $2, $3, 'pending', 1, $4, now() + interval '10 seconds')"#
+                    ).bind(wh.id).bind(&event).bind(&payload).bind(&error_msg).execute(&pool).await;
+                }
+            }
         }
     });
+}
+
+/// Background retry loop for failed webhook deliveries. Call once at startup.
+pub fn start_webhook_retry_loop(pool: PgPool) {
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            retry_pending_deliveries(&pool).await;
+        }
+    });
+}
+
+async fn retry_pending_deliveries(pool: &PgPool) {
+    let deliveries = sqlx::query_as::<_, (Uuid, Uuid, String, serde_json::Value, i32, i32)>(
+        r#"SELECT id, webhook_id, event, payload, attempts, max_attempts
+           FROM webhook_deliveries
+           WHERE status = 'pending' AND next_retry_at <= now()
+           LIMIT 50"#
+    ).fetch_all(pool).await;
+
+    let deliveries = match deliveries {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_default();
+
+    for (delivery_id, webhook_id, event, payload, attempts, max_attempts) in deliveries {
+        let wh = match sqlx::query_as::<_, Webhook>("SELECT * FROM webhooks WHERE id = $1")
+            .bind(webhook_id).fetch_optional(pool).await {
+            Ok(Some(w)) => w,
+            _ => {
+                let _ = sqlx::query("UPDATE webhook_deliveries SET status = 'failed' WHERE id = $1")
+                    .bind(delivery_id).execute(pool).await;
+                continue;
+            }
+        };
+
+        let body = json!({
+            "event": event, "data": payload,
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "webhook_id": wh.id.to_string(),
+        });
+        let body_str = body.to_string();
+        let signature = compute_hmac(&wh.secret, &body_str);
+
+        let result = client.post(&wh.url)
+            .header("Content-Type", "application/json")
+            .header("X-TaskClaw-Signature", &signature)
+            .header("X-TaskClaw-Event", &event)
+            .body(body_str).send().await;
+
+        let new_attempts = attempts + 1;
+        match result {
+            Ok(resp) if resp.status().is_success() => {
+                let _ = sqlx::query("UPDATE webhook_deliveries SET status = 'delivered', attempts = $1, delivered_at = now() WHERE id = $2")
+                    .bind(new_attempts).bind(delivery_id).execute(pool).await;
+            }
+            _ => {
+                let error_msg = match &result {
+                    Ok(resp) => format!("HTTP {}", resp.status()),
+                    Err(e) => e.to_string(),
+                };
+                if new_attempts >= max_attempts {
+                    let _ = sqlx::query("UPDATE webhook_deliveries SET status = 'failed', attempts = $1, last_error = $2 WHERE id = $3")
+                        .bind(new_attempts).bind(&error_msg).bind(delivery_id).execute(pool).await;
+                } else {
+                    let backoff = match new_attempts { 1 => 10, 2 => 60, _ => 300 };
+                    let _ = sqlx::query(&format!("UPDATE webhook_deliveries SET attempts = $1, last_error = $2, next_retry_at = now() + interval '{} seconds' WHERE id = $3", backoff))
+                        .bind(new_attempts).bind(&error_msg).bind(delivery_id).execute(pool).await;
+                }
+            }
+        }
+    }
+}
+
+#[rocket::get("/api/webhooks/<id>/deliveries?<page>&<per_page>")]
+pub async fn list_webhook_deliveries(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    id: &str,
+    page: Option<i64>,
+    per_page: Option<i64>,
+) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
+    let webhook_id = Uuid::parse_str(id)
+        .map_err(|_| ApiError::bad_request("Invalid webhook ID"))?;
+
+    let _ = sqlx::query_as::<_, Webhook>("SELECT * FROM webhooks WHERE id = $1 AND user_id = $2")
+        .bind(webhook_id).bind(auth.user_id)
+        .fetch_optional(pool.inner()).await
+        .map_err(|e| ApiError::internal(e.to_string()))?
+        .ok_or_else(|| ApiError::not_found("Webhook not found"))?;
+
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+
+    let rows = sqlx::query_as::<_, (Uuid, String, String, i32, Option<String>, Option<chrono::DateTime<chrono::Utc>>, chrono::DateTime<chrono::Utc>)>(
+        r#"SELECT id, event, status, attempts, last_error, delivered_at, created_at
+           FROM webhook_deliveries WHERE webhook_id = $1
+           ORDER BY created_at DESC LIMIT $2 OFFSET $3"#
+    ).bind(webhook_id).bind(per_page).bind(offset)
+    .fetch_all(pool.inner()).await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let items: Vec<serde_json::Value> = rows.into_iter().map(|(id, event, status, attempts, last_error, delivered_at, created_at)| {
+        json!({ "id": id, "event": event, "status": status, "attempts": attempts, "last_error": last_error, "delivered_at": delivered_at, "created_at": created_at })
+    }).collect();
+
+    Ok(Json(json!({ "deliveries": items, "page": page, "per_page": per_page })))
 }
 
 fn compute_hmac(secret: &str, body: &str) -> String {

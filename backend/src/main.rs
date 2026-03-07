@@ -9,9 +9,47 @@ mod models;
 mod routes;
 mod services;
 
-use rocket::http::Method;
+use rocket::http::{Method, Status};
+use rocket::serde::json::Json;
+use rocket::Request;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
+use serde_json::json;
 use services::rate_limit::RateLimiter;
+
+#[catch(400)]
+fn catch_bad_request(_req: &Request) -> (Status, Json<serde_json::Value>) {
+    (Status::BadRequest, Json(json!({"error": "Bad request", "status": 400})))
+}
+
+#[catch(401)]
+fn catch_unauthorized(_req: &Request) -> (Status, Json<serde_json::Value>) {
+    (Status::Unauthorized, Json(json!({"error": "Unauthorized", "status": 401})))
+}
+
+#[catch(403)]
+fn catch_forbidden(_req: &Request) -> (Status, Json<serde_json::Value>) {
+    (Status::Forbidden, Json(json!({"error": "Forbidden", "status": 403})))
+}
+
+#[catch(404)]
+fn catch_not_found(_req: &Request) -> (Status, Json<serde_json::Value>) {
+    (Status::NotFound, Json(json!({"error": "Not found", "status": 404})))
+}
+
+#[catch(422)]
+fn catch_unprocessable(_req: &Request) -> (Status, Json<serde_json::Value>) {
+    (Status::UnprocessableEntity, Json(json!({"error": "Unprocessable entity — check your request body", "status": 422})))
+}
+
+#[catch(429)]
+fn catch_too_many_requests(_req: &Request) -> (Status, Json<serde_json::Value>) {
+    (Status::TooManyRequests, Json(json!({"error": "Too many requests. Try again later.", "status": 429})))
+}
+
+#[catch(500)]
+fn catch_internal_error(_req: &Request) -> (Status, Json<serde_json::Value>) {
+    (Status::InternalServerError, Json(json!({"error": "Internal server error", "status": 500})))
+}
 
 #[launch]
 async fn rocket() -> _ {
@@ -51,10 +89,22 @@ async fn rocket() -> _ {
     // Rate limiter: 10 requests per 60 seconds per IP on auth endpoints
     let rate_limiter = RateLimiter::new(10, 60);
 
+    // Start background webhook retry loop
+    routes::webhooks::start_webhook_retry_loop(pool.clone());
+
     rocket::build()
         .manage(pool)
         .manage(rate_limiter)
         .attach(cors)
+        .register("/", catchers![
+            catch_bad_request,
+            catch_unauthorized,
+            catch_forbidden,
+            catch_not_found,
+            catch_unprocessable,
+            catch_too_many_requests,
+            catch_internal_error,
+        ])
         .mount("/", routes![
             routes::tasks::health,
             routes::tasks::list_tasks,
@@ -74,6 +124,8 @@ async fn rocket() -> _ {
             routes::tasks::update_task,
             routes::bids::list_bids,
             routes::bids::create_bid,
+            routes::bids::update_bid,
+            routes::bids::batch_bid,
             routes::bids::accept_bid,
             routes::bids::reject_bid,
             routes::bids::withdraw_bid,
@@ -103,5 +155,16 @@ async fn rocket() -> _ {
             routes::webhooks::create_webhook,
             routes::webhooks::update_webhook,
             routes::webhooks::delete_webhook,
+            routes::webhooks::list_webhook_deliveries,
+            routes::messages::send_message,
+            routes::messages::list_messages,
+            routes::messages::admin_list_messages,
+            routes::templates::create_template,
+            routes::templates::list_templates,
+            routes::templates::delete_template,
+            routes::portfolio::create_portfolio_item,
+            routes::portfolio::list_portfolio,
+            routes::portfolio::delete_portfolio_item,
+            routes::openapi::openapi_spec,
         ])
 }

@@ -45,5 +45,37 @@ pub struct CreateBidRequest {
 }
 
 fn default_currency() -> String {
-    "USD".to_string()
+    "CKB".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateBidRequest {
+    pub price: Option<Decimal>,
+    pub estimated_delivery_days: Option<i32>,
+    pub pitch: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchBidItem {
+    pub task_id: Uuid,
+    pub price: Decimal,
+    #[serde(default = "default_currency")]
+    pub currency: String,
+    pub estimated_delivery_days: i32,
+    pub pitch: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchBidRequest {
+    pub bids: Vec<BatchBidItem>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchBidResult {
+    pub task_id: Uuid,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bid: Option<Bid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }

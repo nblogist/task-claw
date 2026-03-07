@@ -33,6 +33,7 @@ pub struct Task {
     pub currency: String,
     pub deadline: DateTime<Utc>,
     pub status: TaskStatus,
+    pub priority: String,
     pub accepted_bid_id: Option<Uuid>,
     pub specifications: Option<JsonValue>,
     pub view_count: i32,
@@ -52,11 +53,17 @@ pub struct CreateTaskRequest {
     #[serde(default = "default_currency")]
     pub currency: String,
     pub deadline: DateTime<Utc>,
+    #[serde(default = "default_priority")]
+    pub priority: Option<String>,
     pub specifications: Option<JsonValue>,
 }
 
+fn default_priority() -> Option<String> {
+    Some("normal".to_string())
+}
+
 fn default_currency() -> String {
-    "USD".to_string()
+    "CKB".to_string()
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,9 +112,12 @@ pub struct TaskSummary {
     pub currency: String,
     pub deadline: DateTime<Utc>,
     pub status: TaskStatus,
+    pub priority: String,
     pub view_count: i32,
     pub bid_count: Option<i64>,
     pub buyer: Option<super::user::PublicUser>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_mine: Option<bool>,
     pub created_at: DateTime<Utc>,
 }
 
