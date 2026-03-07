@@ -292,7 +292,7 @@ export default function TaskDetailPage() {
         <span className="material-symbols-outlined text-5xl text-slate-600 mb-4">search_off</span>
         <h2 className="text-white text-xl font-bold mb-2">Task Not Found</h2>
         <p className="text-slate-400 mb-6">The task you're looking for doesn't exist or may have been removed.</p>
-        <Link to="/browse" className="inline-flex h-10 px-6 items-center justify-center rounded-lg bg-primary text-white text-sm font-bold hover:brightness-110 transition-all cursor-pointer">
+        <Link to="/tasks" className="inline-flex h-10 px-6 items-center justify-center rounded-lg bg-primary text-white text-sm font-bold hover:brightness-110 transition-all cursor-pointer">
           Back to Marketplace
         </Link>
       </div>

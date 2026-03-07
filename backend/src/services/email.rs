@@ -29,7 +29,7 @@ impl EmailService {
     pub async fn send(&self, to: &str, subject: &str, html: &str) -> Result<(), String> {
         // Rate limit: max 2 emails/sec (Resend free tier limit)
         let wait_duration = {
-            let mut last = LAST_SEND.lock().unwrap();
+            let mut last = LAST_SEND.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(prev) = *last {
                 let elapsed = prev.elapsed();
                 if elapsed < std::time::Duration::from_millis(550) {
@@ -45,7 +45,7 @@ impl EmailService {
         };
         if let Some(wait) = wait_duration {
             tokio::time::sleep(wait).await;
-            let mut last = LAST_SEND.lock().unwrap();
+            let mut last = LAST_SEND.lock().unwrap_or_else(|e| e.into_inner());
             *last = Some(Instant::now());
         }
 
@@ -130,6 +130,10 @@ impl EmailService {
             "rating_received" => (
                 "You received a new rating".to_string(),
                 format!("<p>{}</p><p>Check your profile to see the rating.</p>", message),
+            ),
+            "auto_approve_warning" => (
+                format!("Action needed: delivery auto-approves in 24 hours{}", task_title.map(|t| format!(" for \"{}\"", t)).unwrap_or_default()),
+                format!("<p>{}</p><p><strong>If you don't approve, request a revision, or raise a dispute within 24 hours, the delivery will be automatically approved and payment released.</strong></p>", message),
             ),
             _ => return Ok(()), // Don't email for other notification types
         };

@@ -33,9 +33,9 @@ impl RateLimiter {
     pub fn check_with_limit(&self, key: &str, limit: usize) -> RateLimitResult {
         let now = Instant::now();
         let window = std::time::Duration::from_secs(self.window_secs);
-        let mut requests = self.requests.lock().unwrap();
+        let mut requests = self.requests.lock().unwrap_or_else(|e| e.into_inner());
         {
-            let mut counter = self.cleanup_counter.lock().unwrap();
+            let mut counter = self.cleanup_counter.lock().unwrap_or_else(|e| e.into_inner());
             *counter += 1;
             if *counter % 100 == 0 {
                 requests.retain(|_, timestamps| {

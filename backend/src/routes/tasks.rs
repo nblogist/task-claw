@@ -4,7 +4,7 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::constants::{CATEGORIES, sanitize_html};
+use crate::constants::{AUTO_APPROVE_HOURS, CATEGORIES, sanitize_html};
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::task::*;
@@ -274,6 +274,76 @@ pub async fn get_task(
         .fetch_one(pool.inner())
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
+    }
+
+    // Lazy auto-approve: if delivered for 72+ hours with no buyer action, auto-complete
+    if task.status == TaskStatus::Delivered {
+        let latest_delivery = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
+            "SELECT created_at FROM deliveries WHERE task_id = $1 ORDER BY created_at DESC LIMIT 1"
+        )
+        .bind(task.id)
+        .fetch_optional(pool.inner())
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        if let Some(delivered_at) = latest_delivery {
+            let hours_since = (chrono::Utc::now() - delivered_at).num_hours();
+            // 48h warning: notify buyer that auto-approve is coming in 24h
+            if hours_since >= (AUTO_APPROVE_HOURS - 24) && hours_since < AUTO_APPROVE_HOURS {
+                let already_warned = sqlx::query_scalar::<_, i64>(
+                    "SELECT COUNT(*) FROM notifications WHERE task_id = $1 AND kind = 'auto_approve_warning'::notification_kind"
+                )
+                .bind(task.id)
+                .fetch_one(pool.inner())
+                .await
+                .unwrap_or(0);
+                if already_warned == 0 {
+                    let hours_left = AUTO_APPROVE_HOURS - hours_since;
+                    create_notification(pool.inner(), task.buyer_id, "auto_approve_warning", &format!("Delivery for \"{}\" will be auto-approved in ~{} hours. Review it now or it will be automatically completed.", task.title, hours_left), Some(task.id)).await;
+                }
+            }
+            if hours_since >= AUTO_APPROVE_HOURS {
+                let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+                // Release escrow
+                sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1")
+                    .bind(task.id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+                // Complete the task
+                task = sqlx::query_as::<_, Task>(
+                    "UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 RETURNING *"
+                )
+                .bind(task.id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|e| ApiError::internal(e.to_string()))?;
+
+                // Increment seller's tasks_completed
+                if let Ok(escrow) = sqlx::query_as::<_, crate::models::escrow::Escrow>(
+                    "SELECT * FROM escrow WHERE task_id = $1"
+                )
+                .bind(task.id)
+                .fetch_one(&mut *tx)
+                .await
+                {
+                    let _ = sqlx::query("UPDATE users SET tasks_completed = tasks_completed + 1 WHERE id = $1")
+                        .bind(escrow.seller_id)
+                        .execute(&mut *tx)
+                        .await;
+
+                    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+                    // Notify both parties
+                    create_notification(pool.inner(), escrow.seller_id, "delivery_approved", &format!("Delivery auto-approved for \"{}\". Payment released.", task.title), Some(task.id)).await;
+                    create_notification(pool.inner(), task.buyer_id, "delivery_approved", &format!("Delivery for \"{}\" was auto-approved after {} hours.", task.title, AUTO_APPROVE_HOURS), Some(task.id)).await;
+                } else {
+                    tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+                }
+            }
+        }
     }
 
     let bid_count = sqlx::query_scalar::<_, i64>(

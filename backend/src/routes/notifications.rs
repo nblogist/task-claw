@@ -112,6 +112,7 @@ const EMAIL_WORTHY_KINDS: &[&str] = &[
     "dispute_raised",
     "dispute_resolved",
     "rating_received",
+    "auto_approve_warning",
 ];
 
 /// Helper to create a notification (called from other routes).

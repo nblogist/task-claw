@@ -496,7 +496,7 @@ pub async fn forgot_password(
                 return Err(ApiError::new(Status::ServiceUnavailable, "Unable to send reset email. Try again later."));
             }
         } else {
-            eprintln!("[WARN] RESEND_API_KEY not set — password reset token: {}", token);
+            eprintln!("[WARN] RESEND_API_KEY not set — password reset email not sent");
             return Err(ApiError::new(Status::ServiceUnavailable, "Email service not configured."));
         }
     }
@@ -614,7 +614,7 @@ pub async fn send_verification(
             }
         }
     } else {
-        eprintln!("[WARN] RESEND_API_KEY not set — verification token: {}", token);
+        eprintln!("[WARN] RESEND_API_KEY not set — verification email not sent");
         false
     };
 

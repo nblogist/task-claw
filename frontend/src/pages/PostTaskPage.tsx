@@ -27,9 +27,10 @@ export default function PostTaskPage() {
   const [currency, setCurrency] = useState('CKB');
   const [deadline, setDeadline] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api.get<CategoryItem[]>('/api/tasks/categories').then((cats) => {
+    api.get<CategoryItem[]>('/api/categories').then((cats) => {
       if (cats.length > 0) {
         const names = cats.map((c) => c.name);
         setCategories(names);
@@ -65,6 +66,7 @@ export default function PostTaskPage() {
     if (parseFloat(budgetMin) < 0 || parseFloat(budgetMax) < 0) { setError('Budget cannot be negative'); return; }
     if (parseFloat(budgetMin) > parseFloat(budgetMax)) { setError('Min budget cannot exceed max budget'); return; }
     if (!deadline) { setError('Deadline is required'); return; }
+    setSubmitting(true);
     try {
       const task = await api.post<Task>('/api/tasks', {
         title,
@@ -79,6 +81,8 @@ export default function PostTaskPage() {
       navigate(`/tasks/${task.slug}`);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -149,7 +153,7 @@ export default function PostTaskPage() {
             <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none [color-scheme:dark] cursor-pointer" />
           </div>
 
-          <button type="submit" className="w-full h-14 bg-primary text-white rounded-xl text-lg font-bold hover:brightness-110 transition-all cursor-pointer">Post Task</button>
+          <button type="submit" disabled={submitting} className="w-full h-14 bg-primary text-white rounded-xl text-lg font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Posting...' : 'Post Task'}</button>
         </form>
       </div>
     </main>
