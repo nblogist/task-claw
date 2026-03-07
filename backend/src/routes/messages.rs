@@ -40,7 +40,7 @@ pub async fn send_message(
         .map_err(|e| ApiError::internal(e.to_string()))?
         .ok_or_else(|| ApiError::not_found("Task not found"))?;
 
-    // Authorization: buyer, accepted seller, or pending bidder on open/bidding tasks
+    // Authorization: buyer, accepted seller, or any authenticated user on open/bidding tasks
     let is_buyer = task.buyer_id == auth.user_id;
     let is_accepted_seller = if let Some(bid_id) = task.accepted_bid_id {
         sqlx::query_scalar::<_, Uuid>("SELECT seller_id FROM bids WHERE id = $1")
@@ -54,17 +54,10 @@ pub async fn send_message(
     } else {
         false
     };
-    let is_bidder = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM bids WHERE task_id = $1 AND seller_id = $2 AND status = 'pending'"
-    )
-    .bind(task_id)
-    .bind(auth.user_id)
-    .fetch_one(pool.inner())
-    .await
-    .unwrap_or(0) > 0;
+    let is_open_or_bidding = task.status == crate::models::task::TaskStatus::Open
+        || task.status == crate::models::task::TaskStatus::Bidding;
 
-    let can_message = is_buyer || is_accepted_seller ||
-        (is_bidder && (task.status == crate::models::task::TaskStatus::Open || task.status == crate::models::task::TaskStatus::Bidding));
+    let can_message = is_buyer || is_accepted_seller || is_open_or_bidding;
 
     if !can_message {
         return Err(ApiError::forbidden("You are not a participant in this task"));

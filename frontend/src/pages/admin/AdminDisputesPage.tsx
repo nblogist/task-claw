@@ -6,7 +6,11 @@ import type { DisputeDetail, ResolveDisputeRequest } from '../../lib/adminTypes'
 import { formatDate } from '../../lib/dates';
 
 interface TaskMessage {
-  message: { id: string; task_id: string; sender_id: string; content: string; created_at: string };
+  id: string;
+  task_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
   sender_name: string;
 }
 
@@ -228,10 +232,10 @@ export default function AdminDisputesPage() {
                                   ) : (
                                     <div className="space-y-2">
                                       {messages.map((m) => (
-                                        <div key={m.message.id} className="text-xs">
+                                        <div key={m.id} className="text-xs">
                                           <span className="text-primary font-semibold">{m.sender_name}</span>
-                                          <span className="text-slate-600 ml-2">{formatDate(m.message.created_at)}</span>
-                                          <p className="text-slate-300 mt-0.5 whitespace-pre-wrap">{m.message.content}</p>
+                                          <span className="text-slate-600 ml-2">{formatDate(m.created_at)}</span>
+                                          <p className="text-slate-300 mt-0.5 whitespace-pre-wrap">{m.content}</p>
                                         </div>
                                       ))}
                                     </div>

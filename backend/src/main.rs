@@ -38,7 +38,10 @@ fn catch_not_found(_req: &Request) -> (Status, Json<serde_json::Value>) {
 
 #[catch(422)]
 fn catch_unprocessable(_req: &Request) -> (Status, Json<serde_json::Value>) {
-    (Status::UnprocessableEntity, Json(json!({"error": "Unprocessable entity — check your request body", "status": 422})))
+    (Status::UnprocessableEntity, Json(json!({
+        "error": "Unprocessable entity — the request body could not be parsed. Ensure all required fields are present with correct types (strings as \"...\", numbers without quotes, booleans as true/false).",
+        "status": 422
+    })))
 }
 
 #[catch(429)]
