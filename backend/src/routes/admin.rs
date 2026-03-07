@@ -12,6 +12,7 @@ use crate::models::dispute::{AdminStatsResponse, DisputeDetail, ResolveDisputeRe
 use crate::models::task::{TaskStatus, TaskListResponse, TaskSummary};
 use crate::models::user::PublicUser;
 use crate::services::task_lifecycle::can_transition;
+use crate::routes::notifications::create_notification;
 
 async fn audit_log(pool: &PgPool, action: &str, target_type: &str, target_id: Uuid, details: Option<serde_json::Value>) {
     let _ = sqlx::query(
@@ -265,6 +266,16 @@ pub async fn resolve_dispute(
     let escrow_status = if body.favor == "buyer" { "refunded" } else { "released" };
     let task_status_str = if body.favor == "buyer" { "cancelled" } else { "completed" };
 
+    // Fetch buyer_id and seller_id for notifications + tasks_completed
+    let escrow_row = sqlx::query_as::<_, (Uuid, Uuid, String)>(
+        "SELECT buyer_id, seller_id, (SELECT title FROM tasks WHERE id = $1) FROM escrow WHERE task_id = $1"
+    )
+    .bind(task_id)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+    let (buyer_id, seller_id, task_title) = escrow_row;
+
     let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     sqlx::query(
@@ -295,7 +306,22 @@ pub async fn resolve_dispute(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
+    // X02: Increment tasks_completed when dispute resolved in seller's favor
+    if body.favor == "seller" {
+        sqlx::query("UPDATE users SET tasks_completed = tasks_completed + 1 WHERE id = $1")
+            .bind(seller_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+    }
+
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+    // X01: Notify both buyer and seller about dispute resolution
+    let outcome = if body.favor == "buyer" { "in your favor (refund)" } else { "in seller's favor (payment released)" };
+    create_notification(pool.inner(), buyer_id, "dispute_resolved", &format!("Dispute on \"{}\" resolved {}", task_title, outcome), Some(task_id)).await;
+    let outcome_seller = if body.favor == "seller" { "in your favor (payment released)" } else { "in buyer's favor (refund)" };
+    create_notification(pool.inner(), seller_id, "dispute_resolved", &format!("Dispute on \"{}\" resolved {}", task_title, outcome_seller), Some(task_id)).await;
 
     audit_log(pool.inner(), "resolve_dispute", "dispute", dispute_id,
         Some(json!({"favor": body.favor, "admin_note": body.admin_note, "task_id": task_id.to_string()}))).await;

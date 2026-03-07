@@ -229,11 +229,13 @@ pub async fn get_task(
     // Increment view count only if not the task owner (GAP-22)
     let is_owner = auth.as_ref().map_or(false, |a| a.user_id == task.buyer_id);
     if !is_owner {
-        sqlx::query("UPDATE tasks SET view_count = view_count + 1 WHERE id = $1")
+        if let Err(e) = sqlx::query("UPDATE tasks SET view_count = view_count + 1 WHERE id = $1")
             .bind(task.id)
             .execute(pool.inner())
             .await
-            .ok();
+        {
+            eprintln!("[WARN] Failed to increment view count for task {}: {}", task.id, e);
+        }
         task.view_count += 1;
     }
 
@@ -359,6 +361,15 @@ pub async fn create_task(
     if !CATEGORIES.contains(&body.category.as_str()) {
         return Err(ApiError::bad_request(format!("Invalid category. Must be one of: {}", CATEGORIES.join(", "))));
     }
+    // X08: Tag count and length validation
+    if body.tags.len() > 10 {
+        return Err(ApiError::bad_request("Maximum 10 tags allowed"));
+    }
+    for tag in &body.tags {
+        if tag.is_empty() || tag.len() > 50 {
+            return Err(ApiError::bad_request("Each tag must be 1-50 characters"));
+        }
+    }
 
     // Generate race-condition-safe slug with UUID suffix
     let base_slug = slug::slugify(&body.title);
@@ -438,6 +449,9 @@ pub async fn update_task(
     if title.is_empty() || title.len() > 120 {
         return Err(ApiError::bad_request("Title must be 1-120 characters"));
     }
+    if description.is_empty() || description.len() > 2000 {
+        return Err(ApiError::bad_request("Description must be 1-2000 characters"));
+    }
     if budget_min < rust_decimal::Decimal::ZERO || budget_max < rust_decimal::Decimal::ZERO {
         return Err(ApiError::bad_request("Budget must be >= 0"));
     }
@@ -446,6 +460,14 @@ pub async fn update_task(
     }
     if !CATEGORIES.contains(&category.as_str()) {
         return Err(ApiError::bad_request(format!("Invalid category. Must be one of: {}", CATEGORIES.join(", "))));
+    }
+    if tags.len() > 10 {
+        return Err(ApiError::bad_request("Maximum 10 tags allowed"));
+    }
+    for tag in &tags {
+        if tag.is_empty() || tag.len() > 50 {
+            return Err(ApiError::bad_request("Each tag must be 1-50 characters"));
+        }
     }
 
     let updated = sqlx::query_as::<_, Task>(

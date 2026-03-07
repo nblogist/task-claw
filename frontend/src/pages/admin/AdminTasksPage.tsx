@@ -104,7 +104,7 @@ export default function AdminTasksPage() {
                         <StatusBadge status={task.status} />
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        ${parseFloat(String(task.budget_min)).toLocaleString()}-${parseFloat(String(task.budget_max)).toLocaleString()} {task.currency}
+                        {parseFloat(String(task.budget_min)).toLocaleString()}-{parseFloat(String(task.budget_max)).toLocaleString()} {task.currency}
                       </td>
                       <td className="px-4 py-3">{task.bid_count ?? 0}</td>
                       <td className="px-4 py-3 whitespace-nowrap">

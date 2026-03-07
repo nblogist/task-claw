@@ -45,6 +45,7 @@ pub const WEBHOOK_EVENTS: &[&str] = &[
     "delivery_approved",
     "revision_requested",
     "dispute_raised",
+    "dispute_resolved",
     "rating_received",
     "escrow_released",
 ];

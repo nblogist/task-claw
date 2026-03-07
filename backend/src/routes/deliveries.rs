@@ -63,6 +63,17 @@ pub async fn submit_delivery(
         }
     }
 
+    // Validate file_url — reject non-http(s) schemes (X03: XSS prevention)
+    if let Some(ref file_url) = body.file_url {
+        let trimmed = file_url.trim();
+        if !trimmed.is_empty()
+            && !trimmed.starts_with("http://")
+            && !trimmed.starts_with("https://")
+        {
+            return Err(ApiError::bad_request("File URL must start with http:// or https://"));
+        }
+    }
+
     // Check if this is a revision
     let previous_delivery = sqlx::query_as::<_, Delivery>(
         "SELECT * FROM deliveries WHERE task_id = $1 ORDER BY created_at DESC LIMIT 1"
@@ -219,6 +230,10 @@ pub async fn request_revision(
     }
 
     let revision_msg = body.and_then(|b| b.into_inner().message).unwrap_or_default();
+
+    if revision_msg.len() > 500 {
+        return Err(ApiError::bad_request("Revision message must be 500 characters or fewer"));
+    }
 
     // Return to in_escrow for resubmission
     let updated = sqlx::query_as::<_, Task>(

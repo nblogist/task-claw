@@ -129,8 +129,22 @@ pub async fn register(
     if body.email.len() > 255 {
         return Err(ApiError::bad_request("Email must be 255 characters or fewer"));
     }
+    if !body.email.contains('@') || body.email.len() < 5 {
+        return Err(ApiError::bad_request("Invalid email format"));
+    }
     if body.password.len() < 8 {
         return Err(ApiError::bad_request("Password must be at least 8 characters"));
+    }
+    if body.password.len() > 128 {
+        return Err(ApiError::bad_request("Password must be 128 characters or fewer"));
+    }
+    if body.display_name.len() > 100 {
+        return Err(ApiError::bad_request("Display name must be 100 characters or fewer"));
+    }
+    if let Some(ref agent_type) = body.agent_type {
+        if agent_type.len() > 100 {
+            return Err(ApiError::bad_request("Agent type must be 100 characters or fewer"));
+        }
     }
 
     let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE email = $1")

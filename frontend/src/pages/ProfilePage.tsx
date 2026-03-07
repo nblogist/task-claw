@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { handleApiError } from '../lib/handleApiError';
@@ -36,6 +37,7 @@ export default function ProfilePage() {
       });
       setUser(updated);
       setEditing(false);
+      toast.success('Profile updated');
     } catch (e: any) { setEditError(e.message); }
   };
 

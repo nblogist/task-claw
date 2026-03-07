@@ -67,7 +67,7 @@ export default function Header() {
         <div className="flex items-center gap-3 justify-self-end">
           {user ? (
             <>
-            <Link to="/notifications" className="relative flex items-center justify-center size-10 rounded-lg bg-card-dark border border-border-dark text-slate-300 hover:text-white transition-colors cursor-pointer">
+            <Link to="/notifications" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} className="relative flex items-center justify-center size-10 rounded-lg bg-card-dark border border-border-dark text-slate-300 hover:text-white transition-colors cursor-pointer">
               <span className="material-symbols-outlined text-xl">notifications</span>
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 size-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">

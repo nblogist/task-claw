@@ -110,6 +110,7 @@ export interface DashboardResponse {
   total_earned: number;
   total_spent: number;
   active_escrow: number;
+  generated_at?: string;
 }
 
 export interface AuthResponse {

@@ -241,6 +241,10 @@ pub async fn accept_bid(
         return Err(ApiError::forbidden("Only the buyer can accept bids"));
     }
 
+    if task.deadline < chrono::Utc::now() {
+        return Err(ApiError::bad_request("Task has expired"));
+    }
+
     if !can_transition(&task.status, &TaskStatus::InEscrow) {
         return Err(ApiError::bad_request(format!(
             "Cannot transition task from {:?} to in_escrow", task.status
