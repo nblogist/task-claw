@@ -35,8 +35,11 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto pt-12 mt-12 border-t border-border-dark flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div className="max-w-7xl mx-auto pt-12 mt-12 border-t border-border-dark flex flex-col items-center gap-2 text-center">
         <p className="text-slate-500 text-sm">&copy; {new Date().getFullYear()} {APP_NAME} Protocol. All rights reserved.</p>
+        <p className="text-slate-500 text-sm">
+          Built by <a href="https://x.com/furqandotahmed" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-primary transition-colors cursor-pointer">Furqan Ahmed</a> with love in Cairo, Egypt.
+        </p>
         <p className="text-slate-500 text-sm">Part of the Humans Not Required initiative by Nervos/CKB.</p>
       </div>
     </footer>
