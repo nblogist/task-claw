@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import type { Task, CategoryItem, TaskTemplate } from '../lib/types';
+import type { Task, CategoryItem } from '../lib/types';
 
 const FALLBACK_CATEGORIES = [
   'Writing & Content',
@@ -24,14 +24,9 @@ export default function PostTaskPage() {
   const [tags, setTags] = useState('');
   const [budgetMin, setBudgetMin] = useState('');
   const [budgetMax, setBudgetMax] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('CKB');
   const [deadline, setDeadline] = useState('');
   const [error, setError] = useState('');
-
-  // Templates
-  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [previewTemplate, setPreviewTemplate] = useState<TaskTemplate | null>(null);
 
   useEffect(() => {
     api.get<CategoryItem[]>('/api/tasks/categories').then((cats) => {
@@ -41,31 +36,7 @@ export default function PostTaskPage() {
         setCategory(names[0]);
       }
     }).catch(() => {});
-    // Load user templates
-    if (user) {
-      api.get<TaskTemplate[]>('/api/templates').then(setTemplates).catch(() => {});
-    }
   }, []);
-
-  const applyTemplate = (t: TaskTemplate) => {
-    setTitle('');
-    setDescription(t.description);
-    setCategory(t.category || FALLBACK_CATEGORIES[0]);
-    setTags(t.tags?.join(', ') || '');
-    setBudgetMin(t.budget_min != null ? String(t.budget_min) : '');
-    setBudgetMax(t.budget_max != null ? String(t.budget_max) : '');
-    setCurrency(t.currency || 'USD');
-    setShowTemplates(false);
-    setPreviewTemplate(null);
-  };
-
-  const handleDeleteTemplate = async (id: string) => {
-    if (!window.confirm('Delete this template?')) return;
-    try {
-      await api.del(`/api/templates/${id}`);
-      setTemplates(prev => prev.filter(t => t.id !== id));
-    } catch { /* ignore */ }
-  };
 
   if (!user) {
     return (
@@ -123,64 +94,6 @@ export default function PostTaskPage() {
           </p>
         </div>
 
-        {/* Templates */}
-        {templates.length > 0 && (
-          <div className="mb-6">
-            <button
-              onClick={() => setShowTemplates(!showTemplates)}
-              className="flex items-center gap-2 h-10 px-5 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">description</span>
-              {showTemplates ? 'Hide Templates' : `Use a Template (${templates.length})`}
-            </button>
-            {showTemplates && (
-              <div className="mt-3 space-y-2 animate-fade-in">
-                {templates.map((t) => (
-                  <div key={t.id} className="bg-card-dark rounded-xl border border-border-dark p-4 flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-white font-semibold">{t.name}</p>
-                      <p className="text-slate-400 text-sm mt-1 truncate">{t.description || 'No description'}</p>
-                      <div className="flex gap-3 mt-2 text-xs text-slate-500">
-                        <span>{t.category}</span>
-                        {t.budget_min != null && t.budget_max != null && <span>{t.budget_min}-{t.budget_max} {t.currency}</span>}
-                        {t.tags?.length > 0 && <span>{t.tags.join(', ')}</span>}
-                      </div>
-                      {previewTemplate?.id === t.id && (
-                        <div className="mt-3 bg-background-dark rounded-lg p-3 text-sm text-slate-300 whitespace-pre-wrap animate-fade-in">
-                          {t.description || 'No description'}
-                          {t.specifications && (
-                            <pre className="mt-2 text-xs text-slate-500 overflow-x-auto">{JSON.stringify(t.specifications, null, 2)}</pre>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => setPreviewTemplate(previewTemplate?.id === t.id ? null : t)}
-                        className="h-8 px-3 bg-card-dark text-slate-400 border border-border-dark rounded-lg text-xs hover:text-white cursor-pointer"
-                      >
-                        {previewTemplate?.id === t.id ? 'Hide' : 'Preview'}
-                      </button>
-                      <button
-                        onClick={() => applyTemplate(t)}
-                        className="h-8 px-3 bg-primary text-white rounded-lg text-xs font-bold hover:brightness-110 cursor-pointer"
-                      >
-                        Use
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTemplate(t.id)}
-                        className="h-8 px-3 text-slate-500 hover:text-red-400 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <h1 className="text-white text-3xl font-bold mb-8">Post a New Task</h1>
 
         {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm animate-fade-in">{error}</div>}
@@ -222,10 +135,11 @@ export default function PostTaskPage() {
             <div>
               <label className="text-slate-300 text-sm font-medium mb-2 block">Currency</label>
               <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 cursor-pointer [color-scheme:dark]">
-                <option value="USD">USD</option>
                 <option value="CKB">CKB</option>
+                <option value="USDT">USDT</option>
+                <option value="USDC">USDC</option>
+                <option value="BTC">BTC</option>
                 <option value="ETH">ETH</option>
-                <option value="SOL">SOL</option>
               </select>
             </div>
           </div>

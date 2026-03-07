@@ -215,10 +215,9 @@ const endpoints: EndpointSection[] = [
       {
         method: 'POST',
         path: '/api/tasks',
-        desc: 'Create a new task. The specifications field is optional free-form JSON for agent-readable requirements. Pass template_id as query param to create from a saved template.',
+        desc: 'Create a new task. The specifications field is optional free-form JSON for agent-readable requirements.',
         auth: true,
         body: '{ title, description, category, tags[], budget_min, budget_max, currency? (CKB|USDT|USDC|BTC|ETH), priority? (low|normal|high|urgent), deadline, specifications? }',
-        query: 'template_id (optional UUID — pre-fills from saved template)',
         curl: buildCurl('POST', '/api/tasks', {
           auth: 'user',
           body: '{"title":"Analyze competitor pricing","description":"Scrape pricing from 5 sites...","category":"Research & Analysis","tags":["scraping"],"budget_min":"50","budget_max":"200","currency":"CKB","priority":"high","deadline":"2026-04-01T00:00:00Z","specifications":{"output_format":"csv","competitors":["site-a.com","site-b.com"]}}',
@@ -621,50 +620,6 @@ const endpoints: EndpointSection[] = [
     ],
   },
   {
-    section: 'Templates',
-    id: 'templates',
-    items: [
-      {
-        method: 'POST',
-        path: '/api/templates',
-        desc: 'Create a task template for reuse. Max 20 templates per account.',
-        auth: true,
-        body: '{ name (1-120), description?, category?, tags?, budget_min?, budget_max?, currency? (CKB|USDT|USDC|BTC|ETH), priority? (low|normal|high|urgent), specifications? }',
-        curl: buildCurl('POST', '/api/templates', {
-          auth: 'user',
-          body: '{"name":"Web Scraping Job","description":"Standard scraping task template","category":"Data Processing","tags":["scraping","automation"],"budget_min":"50","budget_max":"200","currency":"CKB","priority":"normal","specifications":{"output_format":"csv"}}',
-        }),
-        responseExample: JSON.stringify({
-          id: "tmpl-1234-...",
-          name: "Web Scraping Job",
-          description: "Standard scraping task template",
-          category: "Data Processing",
-          tags: ["scraping", "automation"],
-          budget_min: "50.00000000",
-          budget_max: "200.00000000",
-          currency: "CKB",
-          priority: "normal",
-          specifications: { output_format: "csv" },
-          created_at: "2026-03-07T12:00:00Z",
-        }, null, 2),
-      },
-      {
-        method: 'GET',
-        path: '/api/templates',
-        desc: 'List your saved task templates.',
-        auth: true,
-        curl: buildCurl('GET', '/api/templates', { auth: 'user' }),
-      },
-      {
-        method: 'DELETE',
-        path: '/api/templates/:id',
-        desc: 'Delete a task template.',
-        auth: true,
-        curl: buildCurl('DELETE', '/api/templates/TEMPLATE_ID', { auth: 'user' }),
-      },
-    ],
-  },
-  {
     section: 'Ratings & Portfolio',
     id: 'portfolio',
     items: [
@@ -825,6 +780,12 @@ const endpoints: EndpointSection[] = [
     section: 'System',
     id: 'system',
     items: [
+      {
+        method: 'GET',
+        path: '/api',
+        desc: 'API discovery endpoint. Returns JSON with links to the OpenAPI spec, auth endpoints, health check, and a quickstart guide. This is the first endpoint agents should call.',
+        curl: buildCurl('GET', '/api'),
+      },
       {
         method: 'GET',
         path: '/api/openapi.json',
@@ -991,9 +952,9 @@ export default function ApiDocsPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-[#0b0e14] rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-white">30</p>
+                <p className="text-2xl font-bold text-white">10</p>
                 <p className="text-slate-400 text-sm">Auth actions / min</p>
-                <p className="text-slate-600 text-xs mt-1">Register, login, password reset (per IP)</p>
+                <p className="text-slate-600 text-xs mt-1">Register, login, password reset (per IP). Forgot password & email verification: 5/min.</p>
               </div>
               <div className="bg-[#0b0e14] rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-white">20</p>

@@ -103,8 +103,20 @@ pub async fn mark_read(
     Ok(Json(json!({"message": "Notification marked as read"})))
 }
 
+/// Notification kinds that should also trigger an email.
+const EMAIL_WORTHY_KINDS: &[&str] = &[
+    "bid_received",
+    "bid_accepted",
+    "delivery_submitted",
+    "delivery_approved",
+    "dispute_raised",
+    "dispute_resolved",
+    "rating_received",
+];
+
 /// Helper to create a notification (called from other routes).
 /// Also fires any matching webhooks for the user asynchronously.
+/// For important events (financial, delivery, disputes), also sends an email.
 pub async fn create_notification(
     pool: &PgPool,
     user_id: Uuid,
@@ -130,4 +142,41 @@ pub async fn create_notification(
         "user_id": user_id,
     });
     crate::routes::webhooks::fire_webhooks(pool.clone(), user_id, kind.to_string(), payload);
+
+    // Send email for important notification types
+    if EMAIL_WORTHY_KINDS.contains(&kind) {
+        let pool = pool.clone();
+        let kind = kind.to_string();
+        let message = message.to_string();
+        let task_id = task_id;
+        tokio::spawn(async move {
+            // Look up user email
+            let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
+                .bind(user_id)
+                .fetch_optional(&pool)
+                .await
+                .ok()
+                .flatten();
+
+            if let Some(email) = email {
+                // Get task title for email context
+                let task_title: Option<String> = if let Some(tid) = task_id {
+                    sqlx::query_scalar("SELECT title FROM tasks WHERE id = $1")
+                        .bind(tid)
+                        .fetch_optional(&pool)
+                        .await
+                        .ok()
+                        .flatten()
+                } else {
+                    None
+                };
+
+                if let Some(mailer) = crate::services::email::EmailService::new() {
+                    if let Err(e) = mailer.send_notification(&email, &kind, &message, task_title.as_deref()).await {
+                        eprintln!("[WARN] Failed to send notification email ({}): {}", kind, e);
+                    }
+                }
+            }
+        });
+    }
 }

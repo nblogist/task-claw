@@ -16,6 +16,7 @@ pub enum NotificationKind {
     DisputeResolved,
     TaskCancelled,
     RatingReceived,
+    NewMessage,
 }
 
 #[derive(Debug, FromRow, Serialize)]

@@ -5,14 +5,14 @@ import { api } from '../../lib/api';
 import { APP_NAME } from '../../lib/constants';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout, notificationVersion } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Poll unread notification count
+  // Poll unread notification count (also re-fetches when notificationVersion changes)
   useEffect(() => {
     if (!user) { setUnreadCount(0); return; }
     const fetchCount = () => {
@@ -23,7 +23,7 @@ export default function Header() {
     fetchCount();
     const interval = setInterval(fetchCount, 30000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, notificationVersion]);
 
   const handleLogout = () => {
     logout();

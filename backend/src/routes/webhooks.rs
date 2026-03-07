@@ -305,9 +305,9 @@ async fn retry_pending_deliveries(pool: &PgPool) {
                     let _ = sqlx::query("UPDATE webhook_deliveries SET status = 'failed', attempts = $1, last_error = $2 WHERE id = $3")
                         .bind(new_attempts).bind(&error_msg).bind(delivery_id).execute(pool).await;
                 } else {
-                    let backoff = match new_attempts { 1 => 10, 2 => 60, _ => 300 };
-                    let _ = sqlx::query(&format!("UPDATE webhook_deliveries SET attempts = $1, last_error = $2, next_retry_at = now() + interval '{} seconds' WHERE id = $3", backoff))
-                        .bind(new_attempts).bind(&error_msg).bind(delivery_id).execute(pool).await;
+                    let backoff_secs: i32 = match new_attempts { 1 => 10, 2 => 60, _ => 300 };
+                    let _ = sqlx::query("UPDATE webhook_deliveries SET attempts = $1, last_error = $2, next_retry_at = now() + make_interval(secs => $4::double precision) WHERE id = $3")
+                        .bind(new_attempts).bind(&error_msg).bind(delivery_id).bind(backoff_secs).execute(pool).await;
                 }
             }
         }

@@ -40,19 +40,32 @@ struct BidWithSellerRow {
     seller_created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[rocket::get("/api/tasks/<slug>/bids")]
+#[rocket::get("/api/tasks/<identifier>/bids")]
 pub async fn list_bids(
     pool: &State<PgPool>,
-    slug: &str,
+    identifier: &str,
 ) -> Result<Json<Vec<BidWithSeller>>, (Status, Json<ApiError>)> {
-    let task_id = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM tasks WHERE slug = $1"
-    )
-    .bind(slug)
-    .fetch_optional(pool.inner())
-    .await
-    .map_err(|e| ApiError::internal(e.to_string()))?
-    .ok_or_else(|| ApiError::not_found("Task not found"))?;
+    if identifier.contains('\0') {
+        return Err(ApiError::not_found("Task not found"));
+    }
+    // Accept both UUID and slug for consistency
+    let task_id = if let Ok(uuid) = Uuid::parse_str(identifier) {
+        // Check UUID exists
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM tasks WHERE id = $1")
+            .bind(uuid)
+            .fetch_optional(pool.inner())
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
+            .ok_or_else(|| ApiError::not_found("Task not found"))?
+    } else {
+        // Fall back to slug lookup
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM tasks WHERE slug = $1")
+            .bind(identifier)
+            .fetch_optional(pool.inner())
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
+            .ok_or_else(|| ApiError::not_found("Task not found"))?
+    };
 
     // Single query with LEFT JOIN to eliminate N+1
     let rows = sqlx::query_as::<_, BidWithSellerRow>(
@@ -163,7 +176,7 @@ pub async fn create_bid(
     if body.price < task.budget_min || body.price > task.budget_max {
         return Err(ApiError::bad_request(format!(
             "Price must be between {} and {}",
-            task.budget_min, task.budget_max
+            task.budget_min.normalize(), task.budget_max.normalize()
         )));
     }
 
@@ -487,7 +500,7 @@ pub async fn update_bid(
 
     if new_price < task.budget_min || new_price > task.budget_max {
         return Err(ApiError::bad_request(format!(
-            "Price must be between {} and {}", task.budget_min, task.budget_max
+            "Price must be between {} and {}", task.budget_min.normalize(), task.budget_max.normalize()
         )));
     }
     if new_pitch.is_empty() || new_pitch.len() > 500 {
@@ -576,7 +589,7 @@ async fn process_single_bid(
         return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(format!("Currency must match task ({})", task.currency)) };
     }
     if item.price < task.budget_min || item.price > task.budget_max {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(format!("Price must be {}-{}", task.budget_min, task.budget_max)) };
+        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(format!("Price must be {}-{}", task.budget_min.normalize(), task.budget_max.normalize())) };
     }
 
     // Check duplicate

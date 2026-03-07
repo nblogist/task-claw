@@ -25,7 +25,7 @@ export default function BrowsePage() {
     api.get<CategoryItem[]>('/api/categories').then(setCategories).catch(handleApiError);
   }, []);
 
-  useEffect(() => {
+  const fetchTasks = () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set('page', String(page));
@@ -42,6 +42,28 @@ export default function BrowsePage() {
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }).catch((e) => { handleApiError(e); setLoading(false); });
+  };
+
+  useEffect(() => { fetchTasks(); }, [page, category, status, search, sort]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('per_page', '12');
+      if (category) params.set('category', category);
+      if (status) params.set('status', status);
+      if (search) params.set('search', search);
+      if (sort) params.set('sort', sort);
+      api.get<TaskListResponse>(`/api/tasks?${params}`).then((r) => {
+        setTasks(r.tasks);
+        setTotal(r.total);
+        setTotalPages(r.total_pages);
+      }).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [page, category, status, search, sort]);
 
   const setFilter = (key: string, value: string) => {

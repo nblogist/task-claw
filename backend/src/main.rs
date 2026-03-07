@@ -107,6 +107,7 @@ async fn rocket() -> _ {
         ])
         .mount("/", routes![
             routes::tasks::health,
+            routes::tasks::api_discovery,
             routes::tasks::list_tasks,
             routes::tasks::get_task,
             routes::tasks::list_categories,
@@ -161,9 +162,6 @@ async fn rocket() -> _ {
             routes::messages::send_message,
             routes::messages::list_messages,
             routes::messages::admin_list_messages,
-            routes::templates::create_template,
-            routes::templates::list_templates,
-            routes::templates::delete_template,
             routes::portfolio::create_portfolio_item,
             routes::portfolio::list_portfolio,
             routes::portfolio::delete_portfolio_item,

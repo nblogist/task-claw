@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use super::decimal_format;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "bid_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
@@ -19,6 +21,7 @@ pub struct Bid {
     pub id: Uuid,
     pub task_id: Uuid,
     pub seller_id: Uuid,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub price: Decimal,
     pub currency: String,
     pub estimated_delivery_days: i32,

@@ -221,6 +221,11 @@ pub async fn get_task(
     auth: Option<AuthUser>,
     slug: &str,
 ) -> Result<Json<TaskDetail>, (Status, Json<ApiError>)> {
+    // Reject null bytes (PostgreSQL rejects \0 in text params)
+    if slug.contains('\0') {
+        return Err(ApiError::not_found("Task not found"));
+    }
+
     // Fetch task by slug, or by UUID as fallback
     let mut task = sqlx::query_as::<_, Task>(
         "SELECT * FROM tasks WHERE slug = $1",
@@ -348,43 +353,17 @@ pub async fn list_categories(
     Ok(Json(result))
 }
 
-#[rocket::post("/api/tasks?<template_id>", data = "<body>")]
+#[rocket::post("/api/tasks", data = "<body>")]
 pub async fn create_task(
     pool: &State<PgPool>,
     limiter: &State<RateLimiter>,
     auth: AuthUser,
-    template_id: Option<String>,
     body: Json<CreateTaskRequest>,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
     if !limiter.check_with_limit(&format!("create_task:{}", auth.user_id), 20).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
     let mut body = body.into_inner();
-
-    // If template_id is provided, load template and use its fields as defaults
-    if let Some(ref tid) = template_id {
-        let tmpl_id = Uuid::parse_str(tid)
-            .map_err(|_| ApiError::bad_request("Invalid template_id"))?;
-        let tmpl = sqlx::query_as::<_, crate::models::template::TaskTemplate>(
-            "SELECT * FROM task_templates WHERE id = $1 AND user_id = $2"
-        )
-        .bind(tmpl_id)
-        .bind(auth.user_id)
-        .fetch_optional(pool.inner())
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?
-        .ok_or_else(|| ApiError::not_found("Template not found"))?;
-
-        // Template fields serve as defaults — body fields override
-        if body.description.is_empty() { body.description = tmpl.description; }
-        if body.category.is_empty() { body.category = tmpl.category; }
-        if body.tags.is_empty() { body.tags = tmpl.tags; }
-        if body.currency == "CKB" && tmpl.currency != "CKB" { body.currency = tmpl.currency; }
-        if body.priority.as_deref() == Some("normal") { body.priority = Some(tmpl.priority); }
-        if body.budget_min == rust_decimal::Decimal::ZERO { if let Some(v) = tmpl.budget_min { body.budget_min = v; } }
-        if body.budget_max == rust_decimal::Decimal::ZERO { if let Some(v) = tmpl.budget_max { body.budget_max = v; } }
-        if body.specifications.is_none() { body.specifications = tmpl.specifications; }
-    }
 
     // Validate
     if body.title.is_empty() || body.title.len() > 120 {
@@ -612,4 +591,31 @@ pub async fn health(pool: &State<PgPool>) -> Result<&'static str, (Status, Json<
         .await
         .map_err(|_| ApiError::new(Status::ServiceUnavailable, "Database unreachable"))?;
     Ok("OK")
+}
+
+/// Discovery endpoint — the first thing an agent should hit.
+/// Returns links to OpenAPI spec, docs, and basic platform info.
+#[rocket::get("/api")]
+pub async fn api_discovery() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "name": "TaskClaw API",
+        "description": "Agent-first task marketplace. Post tasks, bid, deliver, get paid.",
+        "version": "1.0.0",
+        "openapi_spec": "/api/openapi.json",
+        "health": "/health",
+        "docs": "/api-docs",
+        "auth": {
+            "register": "POST /api/auth/register",
+            "login": "POST /api/auth/login",
+            "type": "Bearer JWT token in Authorization header"
+        },
+        "quickstart": [
+            "1. GET /api/openapi.json — full machine-readable API spec",
+            "2. POST /api/auth/register — create an account (set is_agent: true)",
+            "3. POST /api/auth/login — get your JWT token",
+            "4. GET /api/tasks — browse available tasks",
+            "5. POST /api/tasks — post a task (as buyer)",
+            "6. POST /api/tasks/{id}/bids — bid on a task (as seller)"
+        ]
+    }))
 }

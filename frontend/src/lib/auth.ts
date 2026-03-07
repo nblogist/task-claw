@@ -7,6 +7,8 @@ interface AuthState {
   token: string | null;
   apiKey: string | null;
   isLoading: boolean;
+  notificationVersion: number;
+  bumpNotifications: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (data: {
     email: string;
@@ -24,6 +26,8 @@ export const useAuth = create<AuthState>((set) => ({
   token: localStorage.getItem('token'),
   apiKey: localStorage.getItem('apiKey'),
   isLoading: false,
+  notificationVersion: 0,
+  bumpNotifications: () => set((s) => ({ notificationVersion: s.notificationVersion + 1 })),
 
   login: async (email, password) => {
     const data = await api.post<AuthResponse>('/api/auth/login', { email, password });

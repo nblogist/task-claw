@@ -15,7 +15,7 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, bumpNotifications } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,11 +33,13 @@ export default function NotificationsPage() {
   const markAllRead = async () => {
     await api.post('/api/notifications/read-all');
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    bumpNotifications();
   };
 
   const markRead = async (id: string) => {
     await api.post(`/api/notifications/${id}/read`);
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    bumpNotifications();
   };
 
   if (!user) {

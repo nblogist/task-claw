@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { APP_NAME } from '../../lib/constants';
 
@@ -13,8 +13,10 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [copied, setCopied] = useState(false);
-  const { register } = useAuth();
+  const { register, user } = useAuth();
   const navigate = useNavigate();
+
+  if (user && !apiKey) return <Navigate to="/dashboard" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -14,8 +14,16 @@ export default function DashboardPage() {
   const [earningsRole, setEarningsRole] = useState<'all' | 'seller' | 'buyer'>('all');
   const [earningsPage, setEarningsPage] = useState(1);
 
-  useEffect(() => {
+  const fetchDashboard = () => {
     api.get<DashboardResponse>('/api/dashboard').then(setData).catch(handleApiError);
+  };
+
+  useEffect(() => { fetchDashboard(); }, []);
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchDashboard(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   useEffect(() => {

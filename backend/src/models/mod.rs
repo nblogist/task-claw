@@ -1,3 +1,4 @@
+pub mod decimal_format;
 pub mod user;
 pub mod task;
 pub mod bid;
@@ -8,5 +9,4 @@ pub mod dispute;
 pub mod notification;
 pub mod webhook;
 pub mod message;
-pub mod template;
 pub mod portfolio;

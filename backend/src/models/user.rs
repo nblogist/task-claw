@@ -64,6 +64,8 @@ pub struct AuthResponse {
     pub user: PublicUser,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_sent: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

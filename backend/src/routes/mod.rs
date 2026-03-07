@@ -8,6 +8,5 @@ pub mod escrow;
 pub mod notifications;
 pub mod webhooks;
 pub mod messages;
-pub mod templates;
 pub mod portfolio;
 pub mod openapi;

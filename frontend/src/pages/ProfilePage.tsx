@@ -10,7 +10,7 @@ import { formatDate } from '../lib/dates';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { user: authUser, logout } = useAuth();
+  const { user: authUser, logout, loadUser } = useAuth();
   const navigate = useNavigate();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [editing, setEditing] = useState(false);
@@ -52,6 +52,7 @@ export default function ProfilePage() {
       });
       setUser(updated);
       setEditing(false);
+      loadUser();
       toast.success('Profile updated');
     } catch (e: any) { setEditError(e.message); }
   };

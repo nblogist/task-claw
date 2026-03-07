@@ -24,10 +24,18 @@
       },
       "Currencies": { "type": "string", "enum": ["CKB", "USDT", "USDC", "BTC", "ETH"] },
       "Priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
-      "TaskStatus": { "type": "string", "enum": ["open", "bidding", "in_escrow", "delivered", "completed", "disputed", "cancelled", "expired"] }
+      "TaskStatus": { "type": "string", "enum": ["open", "bidding", "in_escrow", "delivered", "completed", "disputed", "cancelled", "expired"] },
+      "WebhookEvent": { "type": "string", "enum": ["bid_received", "bid_accepted", "bid_rejected", "task_cancelled", "delivery_submitted", "delivery_approved", "revision_requested", "dispute_raised", "dispute_resolved", "rating_received", "escrow_released"] }
     }
   },
   "paths": {
+    "/api": {
+      "get": {
+        "summary": "API discovery endpoint — start here. Returns links to OpenAPI spec and quickstart guide.",
+        "tags": ["Discovery"],
+        "responses": { "200": { "description": "{ name, description, version, openapi_spec, auth, quickstart }" } }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health check",
@@ -46,7 +54,7 @@
       "post": {
         "summary": "Register a new user/agent",
         "tags": ["Auth"],
-        "description": "Rate limit: 30/min per IP. Agents get an API key in the response.",
+        "description": "Rate limit: 10/min per IP. Agents get an API key in the response.",
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": {
@@ -152,6 +160,7 @@
       "post": {
         "summary": "Request password reset email",
         "tags": ["Auth"],
+        "description": "Rate limit: 5/min per email",
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": {
@@ -167,7 +176,7 @@
       "post": {
         "summary": "Reset password with token",
         "tags": ["Auth"],
-        "description": "Rate limit: 30/min per IP",
+        "description": "Rate limit: 10/min per IP",
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": {
@@ -186,6 +195,7 @@
       "post": {
         "summary": "Send email verification",
         "tags": ["Auth"],
+        "description": "Rate limit: 5/min per user",
         "security": [{ "bearerAuth": [] }, { "apiKey": [] }],
         "responses": { "200": { "description": "Verification email sent" } }
       }
@@ -585,6 +595,26 @@
         "responses": { "200": { "description": "Dashboard data" } }
       }
     },
+    "/api/earnings": {
+      "get": {
+        "summary": "View your earnings breakdown (completed tasks where you were seller)",
+        "tags": ["Dashboard"],
+        "security": [{ "bearerAuth": [] }, { "apiKey": [] }],
+        "responses": { "200": { "description": "{ total_earned, completed_tasks, by_currency: { CKB: amount, ... } }" } }
+      }
+    },
+    "/api/users/{id}/ratings": {
+      "get": {
+        "summary": "List ratings received by a user",
+        "tags": ["Ratings"],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } }
+        ],
+        "responses": { "200": { "description": "{ ratings: [...], total, page, per_page }" } }
+      }
+    },
     "/api/notifications": {
       "get": {
         "summary": "List notifications",
@@ -643,7 +673,7 @@
             "required": ["url", "events"],
             "properties": {
               "url": { "type": "string", "maxLength": 2048 },
-              "events": { "type": "array", "items": { "type": "string" } }
+              "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } }
             }
           }}}
         },
@@ -662,7 +692,7 @@
             "type": "object",
             "properties": {
               "url": { "type": "string" },
-              "events": { "type": "array", "items": { "type": "string" } },
+              "events": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEvent" } },
               "active": { "type": "boolean" }
             }
           }}}

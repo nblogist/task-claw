@@ -121,7 +121,7 @@ pub async fn register(
     body: Json<RegisterRequest>,
 ) -> Result<Json<AuthResponse>, (Status, Json<ApiError>)> {
     let ip = remote_addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
-    if !limiter.check_with_limit(&format!("register:{}", ip), 30).allowed {
+    if !limiter.check_with_limit(&format!("register:{}", ip), 10).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
     let body = body.into_inner();
@@ -205,21 +205,19 @@ pub async fn register(
     .await;
 
     let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let mut email_sent = false;
     if let Some(mailer) = EmailService::new() {
-        let email_addr = user.email.clone();
-        let vt = verify_token;
-        let fu = frontend_url;
-        tokio::spawn(async move {
-            if let Err(e) = mailer.send_verification(&email_addr, &vt, &fu).await {
-                eprintln!("[WARN] Failed to send verification email: {}", e);
-            }
-        });
+        match mailer.send_verification(&user.email, &verify_token, &frontend_url).await {
+            Ok(()) => { email_sent = true; }
+            Err(e) => { eprintln!("[WARN] Failed to send verification email: {}", e); }
+        }
     }
 
     Ok(Json(AuthResponse {
         token,
         user: PublicUser::from(&user),
         api_key: plaintext_key,
+        email_sent: Some(email_sent),
     }))
 }
 
@@ -260,7 +258,8 @@ pub async fn login(
     Ok(Json(AuthResponse {
         token,
         user: PublicUser::from(&user),
-        api_key: None, // API key is hashed; use rotate-key to get a new plaintext key
+        api_key: None,
+        email_sent: None,
     }))
 }
 
@@ -463,7 +462,7 @@ pub async fn forgot_password(
     limiter: &State<RateLimiter>,
     body: Json<ForgotPasswordRequest>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    if !limiter.check(&format!("forgot:{}", body.email)) {
+    if !limiter.check_with_limit(&format!("forgot:{}", body.email), 5).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
 
@@ -494,9 +493,11 @@ pub async fn forgot_password(
         if let Some(mailer) = EmailService::new() {
             if let Err(e) = mailer.send_password_reset(&email, &token, &frontend_url).await {
                 eprintln!("[WARN] Failed to send password reset email: {}", e);
+                return Err(ApiError::new(Status::ServiceUnavailable, "Unable to send reset email. Try again later."));
             }
         } else {
             eprintln!("[WARN] RESEND_API_KEY not set — password reset token: {}", token);
+            return Err(ApiError::new(Status::ServiceUnavailable, "Email service not configured."));
         }
     }
 
@@ -517,7 +518,7 @@ pub async fn reset_password(
     body: Json<ResetPasswordRequest>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
     let ip = remote_addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
-    if !limiter.check_with_limit(&format!("reset:{}", ip), 30).allowed {
+    if !limiter.check_with_limit(&format!("reset:{}", ip), 10).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
 
@@ -525,6 +526,9 @@ pub async fn reset_password(
 
     if body.new_password.len() < 8 {
         return Err(ApiError::bad_request("Password must be at least 8 characters"));
+    }
+    if body.new_password.len() > 128 {
+        return Err(ApiError::bad_request("Password must be at most 128 characters"));
     }
 
     let row = sqlx::query_as::<_, (Uuid, Uuid, bool, chrono::DateTime<Utc>)>(
@@ -573,7 +577,7 @@ pub async fn send_verification(
     auth: AuthUser,
     limiter: &State<RateLimiter>,
 ) -> Result<Json<serde_json::Value>, (Status, Json<ApiError>)> {
-    if !limiter.check(&format!("verify:{}", auth.user_id)) {
+    if !limiter.check_with_limit(&format!("verify:{}", auth.user_id), 5).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
 
@@ -601,15 +605,24 @@ pub async fn send_verification(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    if let Some(mailer) = EmailService::new() {
-        if let Err(e) = mailer.send_verification(&user.email, &token, &frontend_url).await {
-            eprintln!("[WARN] Failed to send verification email: {}", e);
+    let email_sent = if let Some(mailer) = EmailService::new() {
+        match mailer.send_verification(&user.email, &token, &frontend_url).await {
+            Ok(()) => true,
+            Err(e) => {
+                eprintln!("[WARN] Failed to send verification email: {}", e);
+                false
+            }
         }
     } else {
         eprintln!("[WARN] RESEND_API_KEY not set — verification token: {}", token);
-    }
+        false
+    };
 
-    Ok(Json(json!({"message": "Verification email sent."})))
+    if email_sent {
+        Ok(Json(json!({"message": "Verification email sent."})))
+    } else {
+        Ok(Json(json!({"message": "Verification email could not be sent. Try again later.", "email_sent": false})))
+    }
 }
 
 #[derive(serde::Deserialize)]

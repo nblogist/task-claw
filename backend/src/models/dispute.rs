@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use super::decimal_format;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "dispute_resolution", rename_all = "snake_case")]
 pub enum DisputeResolution {
@@ -29,6 +31,7 @@ pub struct AdminStatsResponse {
     pub total_tasks: i64,
     pub open_tasks: i64,
     pub completed_tasks: i64,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub total_escrow_value: Decimal,
     pub dispute_count: i64,
     pub total_users: i64,
@@ -52,7 +55,9 @@ pub struct DisputeDetail {
     pub buyer_name: String,
     pub seller_id: Uuid,
     pub seller_name: String,
+    #[serde(serialize_with = "decimal_format::option::serialize")]
     pub escrow_amount: Option<Decimal>,
+    #[serde(serialize_with = "decimal_format::option::serialize")]
     pub bid_price: Option<Decimal>,
     pub bid_pitch: Option<String>,
     pub delivery_message: Option<String>,

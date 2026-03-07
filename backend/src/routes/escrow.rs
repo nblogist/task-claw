@@ -7,12 +7,14 @@ use uuid::Uuid;
 
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
+use crate::models::decimal_format;
 
 #[derive(serde::Serialize, sqlx::FromRow)]
 pub struct DashboardBid {
     pub id: uuid::Uuid,
     pub task_id: uuid::Uuid,
     pub seller_id: uuid::Uuid,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub price: Decimal,
     pub currency: String,
     pub estimated_delivery_days: i32,
@@ -29,8 +31,11 @@ pub struct DashboardResponse {
     pub tasks_posted: Vec<crate::models::task::Task>,
     pub tasks_working: Vec<crate::models::task::Task>,
     pub my_bids: Vec<DashboardBid>,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub total_earned: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub total_spent: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub active_escrow: Decimal,
     pub page: i64,
     pub per_page: i64,
@@ -128,6 +133,7 @@ pub struct EarningsTransaction {
     pub id: Uuid,
     pub task_id: Uuid,
     pub task_title: String,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub amount: Decimal,
     pub currency: String,
     pub status: String,
@@ -140,8 +146,11 @@ pub struct EarningsTransaction {
 #[derive(serde::Serialize)]
 pub struct CurrencySummary {
     pub currency: String,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub total_earned: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub total_spent: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub in_escrow: Decimal,
 }
 

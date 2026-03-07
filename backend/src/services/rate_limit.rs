@@ -26,58 +26,33 @@ impl RateLimiter {
         }
     }
 
-    /// Returns true if the request is allowed, false if rate limited.
-    /// Simple boolean check for backward compatibility.
     pub fn check(&self, key: &str) -> bool {
         self.check_with_limit(key, self.max_requests).allowed
     }
 
-    /// Check with a custom limit (e.g. 60 for authenticated, 10 for anonymous).
-    /// Returns detailed rate limit info for headers.
     pub fn check_with_limit(&self, key: &str, limit: usize) -> RateLimitResult {
-        let mut map = self.requests.lock().unwrap();
         let now = Instant::now();
         let window = std::time::Duration::from_secs(self.window_secs);
-
-        // Periodic cleanup every 500 calls to prevent memory leak
+        let mut requests = self.requests.lock().unwrap();
         {
             let mut counter = self.cleanup_counter.lock().unwrap();
             *counter += 1;
-            if *counter % 500 == 0 {
-                map.retain(|_, entries| {
-                    entries.retain(|t| now.duration_since(*t) < window);
-                    !entries.is_empty()
+            if *counter % 100 == 0 {
+                requests.retain(|_, timestamps| {
+                    timestamps.retain(|t| now.duration_since(*t) < window);
+                    !timestamps.is_empty()
                 });
             }
         }
-
-        let entries = map.entry(key.to_string()).or_default();
-
-        // Remove expired entries
-        entries.retain(|t| now.duration_since(*t) < window);
-
-        if entries.len() >= limit {
-            // Calculate retry_after from oldest entry in window
-            let retry_after = entries.first().map(|oldest| {
-                let elapsed = now.duration_since(*oldest).as_secs();
-                self.window_secs.saturating_sub(elapsed)
-            }).unwrap_or(self.window_secs);
-
-            RateLimitResult {
-                allowed: false,
-                limit,
-                remaining: 0,
-                retry_after_secs: Some(retry_after),
-            }
+        let timestamps = requests.entry(key.to_string()).or_insert_with(Vec::new);
+        timestamps.retain(|t| now.duration_since(*t) < window);
+        if timestamps.len() >= limit {
+            let oldest = timestamps[0];
+            let retry_after = window.as_secs().saturating_sub(now.duration_since(oldest).as_secs());
+            RateLimitResult { allowed: false, limit, remaining: 0, retry_after_secs: Some(retry_after.max(1)) }
         } else {
-            let remaining = limit - entries.len() - 1; // -1 because we're about to add one
-            entries.push(now);
-            RateLimitResult {
-                allowed: true,
-                limit,
-                remaining,
-                retry_after_secs: None,
-            }
+            timestamps.push(now);
+            RateLimitResult { allowed: true, limit, remaining: limit - timestamps.len(), retry_after_secs: None }
         }
     }
 }

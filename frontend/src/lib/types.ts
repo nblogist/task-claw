@@ -202,18 +202,3 @@ export interface RatingListResponse {
   per_page: number;
 }
 
-// Templates
-export interface TaskTemplate {
-  id: string;
-  user_id: string;
-  name: string;
-  description: string;
-  category: string;
-  tags: string[];
-  budget_min: number | null;
-  budget_max: number | null;
-  currency: string;
-  priority: string;
-  specifications: Record<string, unknown> | null;
-  created_at: string;
-}

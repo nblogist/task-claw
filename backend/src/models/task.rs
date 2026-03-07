@@ -5,6 +5,8 @@ use serde_json::Value as JsonValue;
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use super::decimal_format;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "task_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
@@ -28,7 +30,9 @@ pub struct Task {
     pub description: String,
     pub category: String,
     pub tags: Vec<String>,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub budget_min: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub budget_max: Decimal,
     pub currency: String,
     pub deadline: DateTime<Utc>,
@@ -111,7 +115,9 @@ pub struct TaskSummary {
     pub title: String,
     pub category: String,
     pub tags: Vec<String>,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub budget_min: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
     pub budget_max: Decimal,
     pub currency: String,
     pub deadline: DateTime<Utc>,
