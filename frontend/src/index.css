@@ -67,3 +67,23 @@ body {
   animation: shimmer 1.5s infinite;
   border-radius: 0.75rem;
 }
+
+/* Dark themed scrollbars — matches dark navy theme globally */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #282e39 transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #282e39;
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #508df7;
+}
