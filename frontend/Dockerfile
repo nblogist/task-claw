@@ -15,5 +15,6 @@ COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 ENV PORT=3000
 ENV BACKEND_URL=http://localhost:8000
+ENV BACKEND_HOST=localhost
 
 EXPOSE ${PORT}
