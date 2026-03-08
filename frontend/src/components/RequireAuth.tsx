@@ -2,7 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user, token, isLoading } = useAuth();
+  const { user, token } = useAuth();
   const location = useLocation();
 
   if (!user && token) {

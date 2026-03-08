@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { APP_NAME } from '../../lib/constants';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');

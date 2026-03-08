@@ -58,6 +58,13 @@ fn catch_internal_error(_req: &Request) -> (Status, Json<serde_json::Value>) {
 async fn rocket() -> _ {
     dotenvy::dotenv().ok();
 
+    // Railway injects PORT; Rocket reads ROCKET_PORT
+    if let Ok(port) = std::env::var("PORT") {
+        if std::env::var("ROCKET_PORT").is_err() {
+            std::env::set_var("ROCKET_PORT", &port);
+        }
+    }
+
     let pool = db::pool::init_pool().await;
 
     if std::env::var("ADMIN_TOKEN").unwrap_or_default().is_empty() {

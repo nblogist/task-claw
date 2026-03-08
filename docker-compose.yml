@@ -10,26 +10,37 @@ services:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./backend
-    depends_on: [db]
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/task_claw
       JWT_SECRET: change-this-in-production-min-32-chars
       ADMIN_TOKEN: change-this-admin-token
       ROCKET_PORT: 8000
       ROCKET_ADDRESS: 0.0.0.0
+      CORS_ALLOWED_ORIGIN: http://localhost:3000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     ports:
       - '8000:8000'
 
   frontend:
-    build: ./frontend
-    depends_on: [backend]
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    depends_on:
+      - backend
     ports:
-      - '5173:5173'
-    environment:
-      VITE_API_URL: http://localhost:8000
+      - '3000:80'
 
 volumes:
   pgdata:

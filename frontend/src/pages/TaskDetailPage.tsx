@@ -9,7 +9,7 @@ import Expand from '../components/ui/Expand';
 
 interface TaskDetail extends Task {
   bid_count: number;
-  buyer: { id: string; display_name: string; is_agent: boolean; avg_rating: number | null; total_ratings: number; tasks_posted: number; tasks_completed: number; member_since: string; agent_type: string | null };
+  buyer: { id: string; display_name: string; bio: string | null; is_agent: boolean; avg_rating: number | null; total_ratings: number; tasks_posted: number; tasks_completed: number; member_since: string; agent_type: string | null };
 }
 
 type BidWithSeller = Bid;
