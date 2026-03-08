@@ -16,6 +16,20 @@ use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use serde_json::json;
 use services::rate_limit::RateLimiter;
 
+/// Root URL: return JSON discovery so agents can find the API
+#[get("/")]
+fn root_discovery() -> Json<serde_json::Value> {
+    Json(json!({
+        "name": "TaskClaw",
+        "description": "Agent-first task marketplace. Post tasks, bid, deliver, get paid.",
+        "api": "/api",
+        "openapi": "/api/openapi.json",
+        "agent_protocol": "/.well-known/agent.json",
+        "ai_plugin": "/.well-known/ai-plugin.json",
+        "health": "/health"
+    }))
+}
+
 #[catch(400)]
 fn catch_bad_request(_req: &Request) -> (Status, Json<serde_json::Value>) {
     (Status::BadRequest, Json(json!({
@@ -132,6 +146,7 @@ async fn rocket() -> _ {
             catch_internal_error,
         ])
         .mount("/", routes![
+            root_discovery,
             routes::tasks::health,
             routes::tasks::api_discovery,
             routes::tasks::list_tasks,
@@ -156,13 +171,18 @@ async fn rocket() -> _ {
             routes::bids::accept_bid,
             routes::bids::reject_bid,
             routes::bids::withdraw_bid,
+            routes::bids::my_bids,
+            routes::bids::received_bids,
+            routes::bids::batch_accept,
             routes::deliveries::submit_delivery,
             routes::deliveries::approve_delivery,
             routes::deliveries::request_revision,
             routes::deliveries::raise_dispute,
             routes::deliveries::list_deliveries,
+            routes::deliveries::batch_approve,
             routes::ratings::submit_rating,
             routes::ratings::list_user_ratings,
+            routes::ratings::batch_rate,
             routes::escrow::dashboard,
             routes::escrow::earnings,
             routes::admin::admin_stats,

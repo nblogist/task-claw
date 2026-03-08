@@ -1,11 +1,14 @@
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use serde::Serialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize)]
 pub struct ApiError {
     pub error: String,
     pub status: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<HashMap<String, String>>,
 }
 
 impl ApiError {
@@ -14,11 +17,21 @@ impl ApiError {
         (s, Json(ApiError {
             error: message.into(),
             status: s.code,
+            fields: None,
         }))
     }
 
     pub fn bad_request(msg: impl Into<String>) -> (Status, Json<ApiError>) {
         Self::new(Status::BadRequest, msg)
+    }
+
+    /// Return a 400 with per-field validation errors
+    pub fn validation(field_errors: HashMap<String, String>) -> (Status, Json<ApiError>) {
+        (Status::BadRequest, Json(ApiError {
+            error: "Validation failed".into(),
+            status: 400,
+            fields: Some(field_errors),
+        }))
     }
 
     pub fn unauthorized(msg: impl Into<String>) -> (Status, Json<ApiError>) {

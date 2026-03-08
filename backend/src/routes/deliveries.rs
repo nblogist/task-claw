@@ -11,6 +11,7 @@ use crate::models::delivery::*;
 use crate::models::task::{Task, TaskStatus};
 use crate::services::task_lifecycle::can_transition;
 use crate::routes::notifications::create_notification;
+use crate::routes::tasks::resolve_task_id;
 
 #[rocket::post("/api/tasks/<id>/deliver", data = "<body>")]
 pub async fn submit_delivery(
@@ -19,8 +20,7 @@ pub async fn submit_delivery(
     id: &str,
     body: Json<CreateDeliveryRequest>,
 ) -> Result<Json<Delivery>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
         .bind(task_id)
@@ -124,8 +124,7 @@ pub async fn approve_delivery(
     auth: AuthUser,
     id: &str,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
         .bind(task_id)
@@ -202,8 +201,7 @@ pub async fn request_revision(
     id: &str,
     body: Option<Json<RevisionRequest>>,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
         .bind(task_id)
@@ -231,8 +229,8 @@ pub async fn request_revision(
     .await
     .unwrap_or(0);
 
-    if delivery_count > 1 {
-        return Err(ApiError::bad_request("Only one revision is allowed"));
+    if delivery_count > 3 {
+        return Err(ApiError::bad_request("Maximum 3 revisions allowed"));
     }
 
     let revision_msg = body.and_then(|b| b.into_inner().message).unwrap_or_default();
@@ -281,8 +279,7 @@ pub async fn raise_dispute(
     id: &str,
     body: Json<DisputeRequest>,
 ) -> Result<Json<crate::models::task::Task>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
         .bind(task_id)
@@ -384,8 +381,7 @@ pub async fn list_deliveries(
     auth: AuthUser,
     id: &str,
 ) -> Result<Json<Vec<Delivery>>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     // Verify requester is buyer or accepted seller
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
@@ -422,4 +418,105 @@ pub async fn list_deliveries(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(deliveries))
+}
+
+// ── Batch approve ────────────────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BatchApproveItem {
+    pub task_id: Uuid,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BatchApproveRequest {
+    pub items: Vec<BatchApproveItem>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct BatchResult {
+    pub task_id: Uuid,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[rocket::post("/api/batch/approve", data = "<body>")]
+pub async fn batch_approve(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    body: Json<BatchApproveRequest>,
+) -> Result<Json<Vec<BatchResult>>, (Status, Json<ApiError>)> {
+    let body = body.into_inner();
+    if body.items.is_empty() {
+        return Err(ApiError::bad_request("At least one item is required"));
+    }
+    if body.items.len() > 10 {
+        return Err(ApiError::bad_request("Maximum 10 items per batch request"));
+    }
+
+    let mut results = Vec::new();
+    for item in &body.items {
+        let result = process_single_approve(pool.inner(), &auth, item).await;
+        results.push(result);
+    }
+    Ok(Json(results))
+}
+
+async fn process_single_approve(
+    pool: &PgPool,
+    auth: &AuthUser,
+    item: &BatchApproveItem,
+) -> BatchResult {
+    let mut tx = match sqlx::Pool::begin(pool).await {
+        Ok(tx) => tx,
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    let task = match sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
+        .bind(item.task_id).fetch_optional(&mut *tx).await {
+        Ok(Some(t)) => t,
+        Ok(None) => return BatchResult { task_id: item.task_id, success: false, error: Some("Task not found".into()) },
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    if task.buyer_id != auth.user_id {
+        return BatchResult { task_id: item.task_id, success: false, error: Some("Not your task".into()) };
+    }
+    if !can_transition(&task.status, &TaskStatus::Completed) {
+        return BatchResult { task_id: item.task_id, success: false, error: Some(format!("Cannot approve from {:?}", task.status)) };
+    }
+
+    // Release escrow
+    let escrow_result = match sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1 AND status = 'locked'")
+        .bind(item.task_id).execute(&mut *tx).await {
+        Ok(r) => r,
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    if escrow_result.rows_affected() == 0 {
+        return BatchResult { task_id: item.task_id, success: false, error: Some("Escrow already released".into()) };
+    }
+
+    // Complete task
+    let _ = sqlx::query("UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 AND status = 'delivered'")
+        .bind(item.task_id).execute(&mut *tx).await;
+
+    // Increment seller's tasks_completed
+    if let Ok(escrow) = sqlx::query_as::<_, crate::models::escrow::Escrow>("SELECT * FROM escrow WHERE task_id = $1")
+        .bind(item.task_id).fetch_one(&mut *tx).await {
+        let _ = sqlx::query("UPDATE users SET tasks_completed = tasks_completed + 1 WHERE id = $1")
+            .bind(escrow.seller_id).execute(&mut *tx).await;
+
+        if let Err(e) = tx.commit().await {
+            return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) };
+        }
+
+        create_notification(pool, escrow.seller_id, "delivery_approved", &format!("Delivery approved for \"{}\"! Payment released.", task.title), Some(task.id)).await;
+    } else {
+        if let Err(e) = tx.commit().await {
+            return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) };
+        }
+    }
+
+    BatchResult { task_id: item.task_id, success: true, error: None }
 }

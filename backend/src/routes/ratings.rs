@@ -10,6 +10,7 @@ use crate::guards::auth::AuthUser;
 use crate::models::rating::*;
 use crate::models::task::{Task, TaskStatus};
 use crate::routes::notifications::create_notification;
+use crate::routes::tasks::resolve_task_id;
 
 #[rocket::post("/api/tasks/<id>/rate", data = "<body>")]
 pub async fn submit_rating(
@@ -18,8 +19,7 @@ pub async fn submit_rating(
     id: &str,
     body: Json<CreateRatingRequest>,
 ) -> Result<Json<Rating>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let body = body.into_inner();
 
@@ -172,4 +172,118 @@ pub async fn list_user_ratings(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok(Json(RatingListResponse { ratings, total, page, per_page }))
+}
+
+// ── Batch rate ───────────────────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BatchRateItem {
+    pub task_id: Uuid,
+    pub score: i16,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BatchRateRequest {
+    pub items: Vec<BatchRateItem>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct BatchResult {
+    pub task_id: Uuid,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[rocket::post("/api/batch/rate", data = "<body>")]
+pub async fn batch_rate(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    body: Json<BatchRateRequest>,
+) -> Result<Json<Vec<BatchResult>>, (Status, Json<ApiError>)> {
+    let body = body.into_inner();
+    if body.items.is_empty() {
+        return Err(ApiError::bad_request("At least one item is required"));
+    }
+    if body.items.len() > 10 {
+        return Err(ApiError::bad_request("Maximum 10 items per batch request"));
+    }
+
+    let mut results = Vec::new();
+    for item in &body.items {
+        let result = process_single_rate(pool.inner(), &auth, item).await;
+        results.push(result);
+    }
+    Ok(Json(results))
+}
+
+async fn process_single_rate(
+    pool: &PgPool,
+    auth: &AuthUser,
+    item: &BatchRateItem,
+) -> BatchResult {
+    if item.score < 1 || item.score > 5 {
+        return BatchResult { task_id: item.task_id, success: false, error: Some("Score must be 1-5".into()) };
+    }
+    if let Some(ref c) = item.comment {
+        if c.len() > 1000 {
+            return BatchResult { task_id: item.task_id, success: false, error: Some("Comment too long (max 1000)".into()) };
+        }
+    }
+
+    let task = match sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
+        .bind(item.task_id).fetch_optional(pool).await {
+        Ok(Some(t)) => t,
+        Ok(None) => return BatchResult { task_id: item.task_id, success: false, error: Some("Task not found".into()) },
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    if task.status != TaskStatus::Completed {
+        return BatchResult { task_id: item.task_id, success: false, error: Some("Task not completed".into()) };
+    }
+
+    let escrow = match sqlx::query_as::<_, crate::models::escrow::Escrow>("SELECT * FROM escrow WHERE task_id = $1")
+        .bind(item.task_id).fetch_one(pool).await {
+        Ok(e) => e,
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    let ratee_id = if auth.user_id == task.buyer_id {
+        escrow.seller_id
+    } else if auth.user_id == escrow.seller_id {
+        task.buyer_id
+    } else {
+        return BatchResult { task_id: item.task_id, success: false, error: Some("Not a participant".into()) };
+    };
+
+    // Check existing
+    let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM ratings WHERE task_id = $1 AND rater_id = $2")
+        .bind(item.task_id).bind(auth.user_id).fetch_one(pool).await.unwrap_or(0);
+    if existing > 0 {
+        return BatchResult { task_id: item.task_id, success: false, error: Some("Already rated".into()) };
+    }
+
+    let comment_sanitized = item.comment.as_ref().map(|c| sanitize_html(c));
+
+    // Insert rating
+    if let Err(e) = sqlx::query(
+        "INSERT INTO ratings (task_id, rater_id, ratee_id, score, comment) VALUES ($1, $2, $3, $4, $5)"
+    )
+    .bind(item.task_id).bind(auth.user_id).bind(ratee_id).bind(item.score).bind(&comment_sanitized)
+    .execute(pool).await {
+        return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) };
+    }
+
+    // Update ratee avg
+    let _ = sqlx::query(
+        r#"UPDATE users SET total_ratings = total_ratings + 1,
+           avg_rating = (SELECT AVG(score)::numeric(3,2) FROM ratings WHERE ratee_id = $1)
+           WHERE id = $1"#
+    )
+    .bind(ratee_id).execute(pool).await;
+
+    create_notification(pool, ratee_id, "rating_received", &format!("You received a {}-star rating on \"{}\"", item.score, task.title), Some(task.id)).await;
+
+    BatchResult { task_id: item.task_id, success: true, error: None }
 }

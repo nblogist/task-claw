@@ -12,6 +12,7 @@ use crate::models::message::*;
 use crate::models::task::Task;
 use crate::services::rate_limit::RateLimiter;
 use crate::routes::notifications::create_notification;
+use crate::routes::tasks::resolve_task_id;
 
 #[rocket::post("/api/tasks/<task_id>/messages", data = "<body>")]
 pub async fn send_message(
@@ -25,8 +26,7 @@ pub async fn send_message(
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
 
-    let task_id = Uuid::parse_str(task_id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), task_id).await?;
 
     let body = body.into_inner();
     if body.content.is_empty() || body.content.len() > 2000 {
@@ -99,8 +99,7 @@ pub async fn list_messages(
     page: Option<i64>,
     per_page: Option<i64>,
 ) -> Result<Json<MessageListResponse>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(task_id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), task_id).await?;
 
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
         .bind(task_id)
@@ -165,8 +164,7 @@ pub async fn admin_list_messages(
     pool: &State<PgPool>,
     task_id: &str,
 ) -> Result<Json<Vec<MessageWithSender>>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(task_id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), task_id).await?;
 
     let rows = sqlx::query_as::<_, (Uuid, Uuid, Uuid, String, chrono::DateTime<chrono::Utc>, String)>(
         r#"SELECT m.id, m.task_id, m.sender_id, m.content, m.created_at, u.display_name

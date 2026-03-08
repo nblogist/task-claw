@@ -4,6 +4,8 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use std::collections::HashMap;
+
 use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
@@ -14,6 +16,7 @@ use crate::models::user::{PublicUser, User};
 use crate::services::rate_limit::RateLimiter;
 use crate::services::task_lifecycle::can_transition;
 use crate::routes::notifications::create_notification;
+use crate::routes::tasks::resolve_task_id;
 
 #[derive(Debug, sqlx::FromRow)]
 struct BidWithSellerRow {
@@ -130,20 +133,23 @@ pub async fn create_bid(
     if !limiter.check_with_limit(&format!("create_bid:{}", auth.user_id), 20).allowed {
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let body = body.into_inner();
 
-    // Validate pitch length
+    // Validate — collect all field errors
+    let mut errs: HashMap<String, String> = HashMap::new();
     if body.pitch.is_empty() || body.pitch.len() > 500 {
-        return Err(ApiError::bad_request("Pitch must be 1-500 characters"));
+        errs.insert("pitch".into(), "Must be 1-500 characters".into());
     }
     if body.estimated_delivery_days < 1 || body.estimated_delivery_days > 365 {
-        return Err(ApiError::bad_request("Estimated delivery days must be between 1 and 365"));
+        errs.insert("estimated_delivery_days".into(), "Must be between 1 and 365".into());
     }
     if !crate::constants::VALID_CURRENCIES.contains(&body.currency.as_str()) {
-        return Err(ApiError::bad_request(format!("Invalid currency. Must be one of: {}", crate::constants::VALID_CURRENCIES.join(", "))));
+        errs.insert("currency".into(), format!("Invalid. Must be one of: {}", crate::constants::VALID_CURRENCIES.join(", ")));
+    }
+    if !errs.is_empty() {
+        return Err(ApiError::validation(errs));
     }
 
     let task = sqlx::query_as::<_, Task>(
@@ -241,8 +247,7 @@ pub async fn accept_bid(
     task_id: &str,
     bid_id: &str,
 ) -> Result<Json<Escrow>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(task_id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), task_id).await?;
     let bid_id = Uuid::parse_str(bid_id)
         .map_err(|_| ApiError::bad_request("Invalid bid ID"))?;
 
@@ -368,8 +373,7 @@ pub async fn reject_bid(
     task_id: &str,
     bid_id: &str,
 ) -> Result<Json<Bid>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(task_id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), task_id).await?;
     let bid_id = Uuid::parse_str(bid_id)
         .map_err(|_| ApiError::bad_request("Invalid bid ID"))?;
 
@@ -417,8 +421,7 @@ pub async fn withdraw_bid(
     task_id: &str,
     bid_id: &str,
 ) -> Result<Json<Bid>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(task_id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), task_id).await?;
     let bid_id = Uuid::parse_str(bid_id)
         .map_err(|_| ApiError::bad_request("Invalid bid ID"))?;
 
@@ -460,8 +463,7 @@ pub async fn update_bid(
         return Err(ApiError::new(Status::TooManyRequests, "Too many requests. Try again later."));
     }
 
-    let task_id = Uuid::parse_str(task_id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), task_id).await?;
     let bid_id = Uuid::parse_str(bid_id)
         .map_err(|_| ApiError::bad_request("Invalid bid ID"))?;
 
@@ -631,4 +633,223 @@ async fn process_single_bid(
     create_notification(pool, task.buyer_id, "bid_received", &format!("New bid received on \"{}\"", task.title), Some(task.id)).await;
 
     BatchBidResult { task_id: item.task_id, success: true, bid: Some(bid), error: None }
+}
+
+// ── Aggregate bid endpoints ──────────────────────────────────────────
+
+#[derive(Debug, serde::Serialize, sqlx::FromRow)]
+pub struct BidWithTaskInfo {
+    // Bid fields
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub seller_id: Uuid,
+    #[serde(serialize_with = "crate::models::decimal_format::serialize")]
+    pub price: rust_decimal::Decimal,
+    pub currency: String,
+    pub estimated_delivery_days: i32,
+    pub pitch: String,
+    pub status: BidStatus,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    // Task context
+    pub task_title: String,
+    pub task_slug: String,
+    pub task_status: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct MyBidsResponse {
+    pub bids: Vec<BidWithTaskInfo>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
+
+/// GET /api/bids/mine — all bids placed by the authenticated user
+#[rocket::get("/api/bids/mine?<status>&<page>&<per_page>")]
+pub async fn my_bids(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    status: Option<String>,
+    page: Option<i64>,
+    per_page: Option<i64>,
+) -> Result<Json<MyBidsResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+    let status_filter = status.as_deref().unwrap_or("");
+
+    let total = sqlx::query_scalar::<_, i64>(
+        r#"SELECT COUNT(*) FROM bids b
+           JOIN tasks t ON t.id = b.task_id
+           WHERE b.seller_id = $1
+           AND ($2 = '' OR b.status::text = $2)"#
+    )
+    .bind(auth.user_id)
+    .bind(status_filter)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let bids = sqlx::query_as::<_, BidWithTaskInfo>(
+        r#"SELECT b.*, t.title AS task_title, t.slug AS task_slug, t.status::text AS task_status
+           FROM bids b
+           JOIN tasks t ON t.id = b.task_id
+           WHERE b.seller_id = $1
+           AND ($2 = '' OR b.status::text = $2)
+           ORDER BY b.created_at DESC
+           LIMIT $3 OFFSET $4"#
+    )
+    .bind(auth.user_id)
+    .bind(status_filter)
+    .bind(per_page)
+    .bind(offset)
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(MyBidsResponse { bids, total, page, per_page }))
+}
+
+/// GET /api/bids/received — all bids received on the authenticated user's tasks
+#[rocket::get("/api/bids/received?<status>&<page>&<per_page>")]
+pub async fn received_bids(
+    pool: &State<PgPool>,
+    auth: AuthUser,
+    status: Option<String>,
+    page: Option<i64>,
+    per_page: Option<i64>,
+) -> Result<Json<MyBidsResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * per_page;
+    let status_filter = status.as_deref().unwrap_or("");
+
+    let total = sqlx::query_scalar::<_, i64>(
+        r#"SELECT COUNT(*) FROM bids b
+           JOIN tasks t ON t.id = b.task_id
+           WHERE t.buyer_id = $1
+           AND ($2 = '' OR b.status::text = $2)"#
+    )
+    .bind(auth.user_id)
+    .bind(status_filter)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let bids = sqlx::query_as::<_, BidWithTaskInfo>(
+        r#"SELECT b.*, t.title AS task_title, t.slug AS task_slug, t.status::text AS task_status
+           FROM bids b
+           JOIN tasks t ON t.id = b.task_id
+           WHERE t.buyer_id = $1
+           AND ($2 = '' OR b.status::text = $2)
+           ORDER BY b.created_at DESC
+           LIMIT $3 OFFSET $4"#
+    )
+    .bind(auth.user_id)
+    .bind(status_filter)
+    .bind(per_page)
+    .bind(offset)
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(MyBidsResponse { bids, total, page, per_page }))
+}
+
+// ── Batch accept ─────────────────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BatchAcceptItem {
+    pub task_id: Uuid,
+    pub bid_id: Uuid,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BatchAcceptRequest {
+    pub items: Vec<BatchAcceptItem>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct BatchResult {
+    pub task_id: Uuid,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[rocket::post("/api/batch/accept", data = "<body>")]
+pub async fn batch_accept(
+    pool: &State<PgPool>,
+    _escrow_mode: &State<crate::models::escrow::EscrowMode>,
+    auth: AuthUser,
+    body: Json<BatchAcceptRequest>,
+) -> Result<Json<Vec<BatchResult>>, (Status, Json<ApiError>)> {
+    let body = body.into_inner();
+    if body.items.is_empty() {
+        return Err(ApiError::bad_request("At least one item is required"));
+    }
+    if body.items.len() > 10 {
+        return Err(ApiError::bad_request("Maximum 10 items per batch request"));
+    }
+
+    let mut results = Vec::new();
+    for item in &body.items {
+        let result = process_single_accept(pool.inner(), &auth, item).await;
+        results.push(result);
+    }
+    Ok(Json(results))
+}
+
+async fn process_single_accept(
+    pool: &PgPool,
+    auth: &AuthUser,
+    item: &BatchAcceptItem,
+) -> BatchResult {
+    let mut tx = match sqlx::Pool::begin(pool).await {
+        Ok(tx) => tx,
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    let task = match sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1 FOR UPDATE")
+        .bind(item.task_id).fetch_optional(&mut *tx).await {
+        Ok(Some(t)) => t,
+        Ok(None) => return BatchResult { task_id: item.task_id, success: false, error: Some("Task not found".into()) },
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    if task.buyer_id != auth.user_id {
+        return BatchResult { task_id: item.task_id, success: false, error: Some("Not your task".into()) };
+    }
+    if !can_transition(&task.status, &TaskStatus::InEscrow) {
+        return BatchResult { task_id: item.task_id, success: false, error: Some(format!("Cannot accept from {:?}", task.status)) };
+    }
+
+    let bid = match sqlx::query_as::<_, Bid>("SELECT * FROM bids WHERE id = $1 AND task_id = $2 AND status = 'pending'")
+        .bind(item.bid_id).bind(item.task_id).fetch_optional(&mut *tx).await {
+        Ok(Some(b)) => b,
+        Ok(None) => return BatchResult { task_id: item.task_id, success: false, error: Some("Pending bid not found".into()) },
+        Err(e) => return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) },
+    };
+
+    // Accept bid, reject others, create escrow
+    let _ = sqlx::query("UPDATE bids SET status = 'accepted', updated_at = now() WHERE id = $1")
+        .bind(item.bid_id).execute(&mut *tx).await;
+    let _ = sqlx::query("UPDATE bids SET status = 'rejected', updated_at = now() WHERE task_id = $1 AND id != $2 AND status = 'pending'")
+        .bind(item.task_id).bind(item.bid_id).execute(&mut *tx).await;
+    let _ = sqlx::query("UPDATE tasks SET status = 'in_escrow', accepted_bid_id = $1, updated_at = now() WHERE id = $2")
+        .bind(item.bid_id).bind(item.task_id).execute(&mut *tx).await;
+    let _ = sqlx::query(
+        "INSERT INTO escrow (task_id, bid_id, buyer_id, seller_id, amount, currency) VALUES ($1, $2, $3, $4, $5, $6)"
+    )
+    .bind(item.task_id).bind(item.bid_id).bind(auth.user_id).bind(bid.seller_id).bind(bid.price).bind(&bid.currency)
+    .execute(&mut *tx).await;
+
+    if let Err(e) = tx.commit().await {
+        return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) };
+    }
+
+    create_notification(pool, bid.seller_id, "bid_accepted", &format!("Your bid on \"{}\" was accepted!", task.title), Some(task.id)).await;
+
+    BatchResult { task_id: item.task_id, success: true, error: None }
 }

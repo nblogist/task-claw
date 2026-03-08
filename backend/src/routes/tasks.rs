@@ -4,6 +4,8 @@ use rocket::State;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use std::collections::HashMap;
+
 use crate::constants::{AUTO_APPROVE_HOURS, CATEGORIES, sanitize_html};
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
@@ -12,6 +14,29 @@ use crate::models::user::{PublicUser, User};
 use crate::services::rate_limit::RateLimiter;
 use crate::services::task_lifecycle::can_transition;
 use crate::routes::notifications::create_notification;
+
+/// Resolve a task identifier (UUID or slug) to a task UUID.
+/// Accepts either a UUID string or a slug, returns the task's UUID.
+pub async fn resolve_task_id(pool: &PgPool, identifier: &str) -> Result<Uuid, (Status, Json<ApiError>)> {
+    if identifier.contains('\0') {
+        return Err(ApiError::not_found("Task not found"));
+    }
+    if let Ok(uuid) = Uuid::parse_str(identifier) {
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM tasks WHERE id = $1")
+            .bind(uuid)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
+            .ok_or_else(|| ApiError::not_found("Task not found"))
+    } else {
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM tasks WHERE slug = $1")
+            .bind(identifier)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
+            .ok_or_else(|| ApiError::not_found("Task not found"))
+    }
+}
 
 #[derive(serde::Serialize)]
 pub struct CategoryItem {
@@ -102,14 +127,15 @@ pub async fn list_tasks(
         _ => "t.created_at DESC",
     };
 
-    // Count query
+    // Count query (search includes poster name/email)
     let count_row = sqlx::query_scalar::<_, i64>(
         &format!(
             r#"SELECT COUNT(*) FROM tasks t
+            LEFT JOIN users u ON u.id = t.buyer_id
             WHERE ($1 = '' OR t.status::text = $1)
             AND ($2 = '' OR t.category = $2)
             AND ($3 = '' OR t.currency = $3)
-            AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%')
+            AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%' OR u.display_name ILIKE '%' || $4 || '%' OR u.email ILIKE '%' || $4 || '%')
             AND ($5::numeric IS NULL OR t.budget_max >= $5)
             AND ($6::numeric IS NULL OR t.budget_min <= $6)
             AND ($7::boolean = false OR t.tags @> $8::text[])
@@ -147,7 +173,7 @@ pub async fn list_tasks(
             WHERE ($1 = '' OR t.status::text = $1)
             AND ($2 = '' OR t.category = $2)
             AND ($3 = '' OR t.currency = $3)
-            AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%')
+            AND ($4 = '' OR t.title ILIKE '%' || $4 || '%' OR t.description ILIKE '%' || $4 || '%' OR u.display_name ILIKE '%' || $4 || '%' OR u.email ILIKE '%' || $4 || '%')
             AND ($5::numeric IS NULL OR t.budget_max >= $5)
             AND ($6::numeric IS NULL OR t.budget_min <= $6)
             AND ($7::boolean = false OR t.tags @> $8::text[])
@@ -448,44 +474,48 @@ pub async fn create_task(
     }
     let mut body = body.into_inner();
 
-    // Validate
+    // Validate — collect all field errors at once
+    let mut errs: HashMap<String, String> = HashMap::new();
     if body.title.is_empty() || body.title.len() > 120 {
-        return Err(ApiError::bad_request("Title must be 1-120 characters"));
+        errs.insert("title".into(), "Must be 1-120 characters".into());
     }
     if body.description.is_empty() || body.description.len() > 2000 {
-        return Err(ApiError::bad_request("Description must be 1-2000 characters"));
+        errs.insert("description".into(), "Must be 1-2000 characters".into());
     }
     if body.budget_min < rust_decimal::Decimal::ZERO {
-        return Err(ApiError::bad_request("budget_min must be >= 0"));
+        errs.insert("budget_min".into(), "Must be >= 0".into());
     }
     if body.budget_max < rust_decimal::Decimal::ZERO {
-        return Err(ApiError::bad_request("budget_max must be >= 0"));
+        errs.insert("budget_max".into(), "Must be >= 0".into());
     }
     if body.budget_min > body.budget_max {
-        return Err(ApiError::bad_request("budget_min must be <= budget_max"));
+        errs.insert("budget_min".into(), "Must be <= budget_max".into());
     }
     if body.deadline <= chrono::Utc::now() {
-        return Err(ApiError::bad_request("Deadline must be in the future"));
+        errs.insert("deadline".into(), "Must be in the future".into());
     }
     if !CATEGORIES.contains(&body.category.as_str()) {
-        return Err(ApiError::bad_request(format!("Invalid category. Must be one of: {}", CATEGORIES.join(", "))));
+        errs.insert("category".into(), format!("Invalid. Must be one of: {}", CATEGORIES.join(", ")));
     }
     if !crate::constants::VALID_CURRENCIES.contains(&body.currency.as_str()) {
-        return Err(ApiError::bad_request(format!("Invalid currency. Must be one of: {}", crate::constants::VALID_CURRENCIES.join(", "))));
+        errs.insert("currency".into(), format!("Invalid. Must be one of: {}", crate::constants::VALID_CURRENCIES.join(", ")));
     }
     let priority = body.priority.as_deref().unwrap_or("normal");
     let valid_priorities = ["low", "normal", "high", "urgent"];
     if !valid_priorities.contains(&priority) {
-        return Err(ApiError::bad_request("Priority must be one of: low, normal, high, urgent"));
+        errs.insert("priority".into(), "Must be one of: low, normal, high, urgent".into());
     }
-    // X08: Tag count and length validation
     if body.tags.len() > 10 {
-        return Err(ApiError::bad_request("Maximum 10 tags allowed"));
+        errs.insert("tags".into(), "Maximum 10 tags allowed".into());
     }
     for tag in &body.tags {
         if tag.is_empty() || tag.len() > 50 {
-            return Err(ApiError::bad_request("Each tag must be 1-50 characters"));
+            errs.insert("tags".into(), "Each tag must be 1-50 characters".into());
+            break;
         }
+    }
+    if !errs.is_empty() {
+        return Err(ApiError::validation(errs));
     }
 
     // Sanitize user-supplied text fields
@@ -541,8 +571,7 @@ pub async fn update_task(
     id: &str,
     body: Json<crate::models::task::UpdateTaskRequest>,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
         .bind(task_id)
@@ -569,28 +598,33 @@ pub async fn update_task(
     let deadline = body.deadline.unwrap_or(task.deadline);
     let specifications = body.specifications.or(task.specifications);
 
+    let mut errs: HashMap<String, String> = HashMap::new();
     if title.is_empty() || title.len() > 120 {
-        return Err(ApiError::bad_request("Title must be 1-120 characters"));
+        errs.insert("title".into(), "Must be 1-120 characters".into());
     }
     if description.is_empty() || description.len() > 2000 {
-        return Err(ApiError::bad_request("Description must be 1-2000 characters"));
+        errs.insert("description".into(), "Must be 1-2000 characters".into());
     }
     if budget_min < rust_decimal::Decimal::ZERO || budget_max < rust_decimal::Decimal::ZERO {
-        return Err(ApiError::bad_request("Budget must be >= 0"));
+        errs.insert("budget_min".into(), "Must be >= 0".into());
     }
     if budget_min > budget_max {
-        return Err(ApiError::bad_request("budget_min must be <= budget_max"));
+        errs.insert("budget_min".into(), "Must be <= budget_max".into());
     }
     if !CATEGORIES.contains(&category.as_str()) {
-        return Err(ApiError::bad_request(format!("Invalid category. Must be one of: {}", CATEGORIES.join(", "))));
+        errs.insert("category".into(), format!("Invalid. Must be one of: {}", CATEGORIES.join(", ")));
     }
     if tags.len() > 10 {
-        return Err(ApiError::bad_request("Maximum 10 tags allowed"));
+        errs.insert("tags".into(), "Maximum 10 tags allowed".into());
     }
     for tag in &tags {
         if tag.is_empty() || tag.len() > 50 {
-            return Err(ApiError::bad_request("Each tag must be 1-50 characters"));
+            errs.insert("tags".into(), "Each tag must be 1-50 characters".into());
+            break;
         }
+    }
+    if !errs.is_empty() {
+        return Err(ApiError::validation(errs));
     }
 
     let updated = sqlx::query_as::<_, Task>(
@@ -620,8 +654,7 @@ pub async fn cancel_task(
     auth: AuthUser,
     id: &str,
 ) -> Result<Json<Task>, (Status, Json<ApiError>)> {
-    let task_id = Uuid::parse_str(id)
-        .map_err(|_| ApiError::bad_request("Invalid task ID"))?;
+    let task_id = resolve_task_id(pool.inner(), id).await?;
 
     let task = sqlx::query_as::<_, Task>(
         "SELECT * FROM tasks WHERE id = $1"
