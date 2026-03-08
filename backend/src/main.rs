@@ -78,6 +78,14 @@ async fn rocket() -> _ {
     let allowed_origins = std::env::var("CORS_ALLOWED_ORIGIN")
         .unwrap_or_else(|_| "http://localhost:5173".to_string());
 
+    // Validate CORS origin has a scheme (https:// or http://)
+    if !allowed_origins.starts_with("http://") && !allowed_origins.starts_with("https://") {
+        panic!(
+            "CORS_ALLOWED_ORIGIN must start with http:// or https:// (got: '{}')",
+            allowed_origins
+        );
+    }
+
     let cors = CorsOptions {
         allowed_origins: AllowedOrigins::some_exact(&[&allowed_origins]),
         allowed_methods: vec![Method::Get, Method::Post, Method::Put, Method::Delete, Method::Options]
