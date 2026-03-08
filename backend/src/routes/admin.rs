@@ -121,15 +121,19 @@ pub async fn admin_list_tasks(
     let search_pattern = if search_term.is_empty() { String::new() } else { format!("%{}%", search_term.to_lowercase()) };
 
     let total = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM tasks t
+        r#"SELECT COUNT(DISTINCT t.id) FROM tasks t
             LEFT JOIN users u ON u.id = t.buyer_id
+            LEFT JOIN bids ab ON ab.id = t.accepted_bid_id
+            LEFT JOIN users s ON s.id = ab.seller_id
             WHERE ($1 = '' OR t.status::text = $1)
               AND ($2 = '' OR LOWER(t.title) LIKE $2
                            OR LOWER(t.slug) LIKE $2
                            OR LOWER(t.category) LIKE $2
                            OR t.id::text LIKE $2
                            OR LOWER(u.display_name) LIKE $2
-                           OR LOWER(u.email) LIKE $2)"#
+                           OR LOWER(u.email) LIKE $2
+                           OR LOWER(s.display_name) LIKE $2
+                           OR LOWER(s.email) LIKE $2)"#
     )
     .bind(status_filter)
     .bind(&search_pattern)
@@ -151,13 +155,17 @@ pub async fn admin_list_tasks(
                 u.created_at AS buyer_created_at
             FROM tasks t
             LEFT JOIN users u ON u.id = t.buyer_id
+            LEFT JOIN bids ab ON ab.id = t.accepted_bid_id
+            LEFT JOIN users s ON s.id = ab.seller_id
             WHERE ($1 = '' OR t.status::text = $1)
               AND ($2 = '' OR LOWER(t.title) LIKE $2
                            OR LOWER(t.slug) LIKE $2
                            OR LOWER(t.category) LIKE $2
                            OR t.id::text LIKE $2
                            OR LOWER(u.display_name) LIKE $2
-                           OR LOWER(u.email) LIKE $2)
+                           OR LOWER(u.email) LIKE $2
+                           OR LOWER(s.display_name) LIKE $2
+                           OR LOWER(s.email) LIKE $2)
             ORDER BY t.created_at DESC
             LIMIT $3 OFFSET $4"#,
     )
@@ -478,4 +486,94 @@ pub async fn unban_user(
     audit_log(pool.inner(), "unban_user", "user", user_id, None).await;
 
     Ok(Json(json!({"message": "User unbanned"})))
+}
+
+// --- Admin Users List ---
+
+#[derive(Debug, serde::Serialize, sqlx::FromRow)]
+struct AdminUserRow {
+    id: Uuid,
+    email: String,
+    display_name: String,
+    bio: Option<String>,
+    is_agent: bool,
+    agent_type: Option<String>,
+    is_banned: bool,
+    avg_rating: Option<Decimal>,
+    total_ratings: i32,
+    tasks_posted: i32,
+    tasks_completed: i32,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct AdminUserListResponse {
+    pub users: Vec<AdminUserRow>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+    pub total_pages: i64,
+}
+
+#[get("/api/admin/users?<search>&<role>&<page>&<per_page>")]
+pub async fn admin_list_users(
+    _admin: AdminToken,
+    pool: &State<PgPool>,
+    search: Option<String>,
+    role: Option<String>,
+    page: Option<i64>,
+    per_page: Option<i64>,
+) -> Result<Json<AdminUserListResponse>, (Status, Json<ApiError>)> {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(50).clamp(1, 200);
+    let offset = (page - 1) * per_page;
+    let search_term = search.as_deref().unwrap_or("").trim();
+    let search_pattern = if search_term.is_empty() { String::new() } else { format!("%{}%", search_term.to_lowercase()) };
+    let role_filter = role.as_deref().unwrap_or("");
+
+    let total = sqlx::query_scalar::<_, i64>(
+        r#"SELECT COUNT(*) FROM users
+            WHERE ($1 = '' OR LOWER(display_name) LIKE $1
+                           OR LOWER(email) LIKE $1
+                           OR id::text LIKE $1)
+              AND ($2 = '' OR ($2 = 'agent' AND is_agent = true)
+                           OR ($2 = 'human' AND is_agent = false)
+                           OR ($2 = 'banned' AND is_banned = true))"#
+    )
+    .bind(&search_pattern)
+    .bind(role_filter)
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let total_pages = (total as f64 / per_page as f64).ceil() as i64;
+
+    let users = sqlx::query_as::<_, AdminUserRow>(
+        r#"SELECT id, email, display_name, bio, is_agent, agent_type, is_banned,
+                  avg_rating, total_ratings, tasks_posted, tasks_completed, created_at
+           FROM users
+           WHERE ($1 = '' OR LOWER(display_name) LIKE $1
+                          OR LOWER(email) LIKE $1
+                          OR id::text LIKE $1)
+             AND ($2 = '' OR ($2 = 'agent' AND is_agent = true)
+                          OR ($2 = 'human' AND is_agent = false)
+                          OR ($2 = 'banned' AND is_banned = true))
+           ORDER BY created_at DESC
+           LIMIT $3 OFFSET $4"#
+    )
+    .bind(&search_pattern)
+    .bind(role_filter)
+    .bind(per_page)
+    .bind(offset)
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(Json(AdminUserListResponse {
+        users,
+        total,
+        page,
+        per_page,
+        total_pages,
+    }))
 }

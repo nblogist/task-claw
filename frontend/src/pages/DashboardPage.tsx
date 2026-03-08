@@ -99,6 +99,16 @@ export default function DashboardPage() {
                 <span className="material-symbols-outlined text-green-400 opacity-50">payments</span>
               </div>
               <p className="text-white text-2xl font-bold">{parseFloat(String(data.total_earned)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              {data.currency_breakdown.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border-dark space-y-1">
+                  {data.currency_breakdown.filter(c => parseFloat(String(c.earned)) > 0).map(c => (
+                    <div key={c.currency} className="flex justify-between text-xs">
+                      <span className="text-slate-500"><span className="inline-block bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
+                      <span className="text-green-400 font-medium">{parseFloat(String(c.earned)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
               <div className="flex items-center justify-between">
@@ -106,6 +116,16 @@ export default function DashboardPage() {
                 <span className="material-symbols-outlined text-red-400 opacity-50">shopping_cart</span>
               </div>
               <p className="text-white text-2xl font-bold">{parseFloat(String(data.total_spent)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              {data.currency_breakdown.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border-dark space-y-1">
+                  {data.currency_breakdown.filter(c => parseFloat(String(c.spent)) > 0).map(c => (
+                    <div key={c.currency} className="flex justify-between text-xs">
+                      <span className="text-slate-500"><span className="inline-block bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
+                      <span className="text-red-400 font-medium">{parseFloat(String(c.spent)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6">
               <div className="flex items-center justify-between">
@@ -116,6 +136,16 @@ export default function DashboardPage() {
                 {parseFloat(String(data.active_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 <span className="text-xs text-slate-500 ml-2">Simulated</span>
               </p>
+              {data.currency_breakdown.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border-dark space-y-1">
+                  {data.currency_breakdown.filter(c => parseFloat(String(c.in_escrow)) > 0).map(c => (
+                    <div key={c.currency} className="flex justify-between text-xs">
+                      <span className="text-slate-500"><span className="inline-block bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
+                      <span className="text-yellow-400 font-medium">{parseFloat(String(c.in_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

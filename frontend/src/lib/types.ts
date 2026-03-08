@@ -105,6 +105,13 @@ export interface DashboardBid extends Bid {
   task_title: string;
 }
 
+export interface DashboardCurrencyBreakdown {
+  currency: string;
+  earned: number | string;
+  spent: number | string;
+  in_escrow: number | string;
+}
+
 export interface DashboardResponse {
   tasks_posted: Task[];
   tasks_working: Task[];
@@ -112,6 +119,7 @@ export interface DashboardResponse {
   total_earned: number;
   total_spent: number;
   active_escrow: number;
+  currency_breakdown: DashboardCurrencyBreakdown[];
   generated_at?: string;
 }
 

@@ -8,6 +8,7 @@ const tabs = [
   { label: 'Dashboard', path: '/admin' },
   { label: 'Disputes', path: '/admin/disputes' },
   { label: 'Tasks', path: '/admin/tasks' },
+  { label: 'Users', path: '/admin/users' },
 ];
 
 export default function AdminLayout() {

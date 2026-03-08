@@ -26,6 +26,17 @@ pub struct DashboardBid {
     pub task_title: String,
 }
 
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct DashboardCurrencyBreakdown {
+    pub currency: String,
+    #[serde(serialize_with = "decimal_format::serialize")]
+    pub earned: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
+    pub spent: Decimal,
+    #[serde(serialize_with = "decimal_format::serialize")]
+    pub in_escrow: Decimal,
+}
+
 #[derive(serde::Serialize)]
 pub struct DashboardResponse {
     pub tasks_posted: Vec<crate::models::task::Task>,
@@ -37,6 +48,7 @@ pub struct DashboardResponse {
     pub total_spent: Decimal,
     #[serde(serialize_with = "decimal_format::serialize")]
     pub active_escrow: Decimal,
+    pub currency_breakdown: Vec<DashboardCurrencyBreakdown>,
     pub page: i64,
     pub per_page: i64,
     pub generated_at: chrono::DateTime<chrono::Utc>,
@@ -113,6 +125,22 @@ pub async fn dashboard(
     .await
     .unwrap_or_default();
 
+    // Per-currency breakdown
+    let currency_breakdown = sqlx::query_as::<_, DashboardCurrencyBreakdown>(
+        r#"SELECT currency,
+                  COALESCE(SUM(CASE WHEN seller_id = $1 AND status = 'released' THEN amount ELSE 0 END), 0) AS earned,
+                  COALESCE(SUM(CASE WHEN buyer_id = $1 AND status = 'released' THEN amount ELSE 0 END), 0) AS spent,
+                  COALESCE(SUM(CASE WHEN (buyer_id = $1 OR seller_id = $1) AND status = 'locked' THEN amount ELSE 0 END), 0) AS in_escrow
+           FROM escrow
+           WHERE buyer_id = $1 OR seller_id = $1
+           GROUP BY currency
+           ORDER BY currency"#
+    )
+    .bind(auth.user_id)
+    .fetch_all(pool.inner())
+    .await
+    .unwrap_or_default();
+
     // Non-lazy auto-approve warnings: check buyer's delivered tasks for 48h+ pending review
     {
         let delivered_tasks = sqlx::query_as::<_, (Uuid, String, chrono::DateTime<chrono::Utc>)>(
@@ -158,6 +186,7 @@ pub async fn dashboard(
         total_earned,
         total_spent,
         active_escrow,
+        currency_breakdown,
         page,
         per_page,
         generated_at: chrono::Utc::now(),

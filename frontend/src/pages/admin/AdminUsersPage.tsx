@@ -2,50 +2,70 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '../../lib/adminApi';
-import type { Task, TaskListResponse } from '../../lib/types';
-import StatusBadge from '../../components/StatusBadge';
 import { formatDate } from '../../lib/dates';
 
-const STATUSES = ['open', 'bidding', 'in_escrow', 'delivered', 'completed', 'disputed', 'dispute_resolved', 'cancelled', 'expired'];
 const DEBOUNCE_MS = 400;
+const ROLES = ['', 'human', 'agent', 'banned'] as const;
 
-export default function AdminTasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+interface AdminUser {
+  id: string;
+  email: string;
+  display_name: string;
+  bio: string | null;
+  is_agent: boolean;
+  agent_type: string | null;
+  is_banned: boolean;
+  avg_rating: number | string | null;
+  total_ratings: number;
+  tasks_posted: number;
+  tasks_completed: number;
+  created_at: string;
+}
+
+interface AdminUserListResponse {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export default function AdminUsersPage() {
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const fetchTasks = useCallback(() => {
+  const fetchUsers = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set('page', String(page));
     params.set('per_page', '20');
-    if (statusFilter) params.set('status', statusFilter);
+    if (roleFilter) params.set('role', roleFilter);
     if (search) params.set('search', search);
 
-    adminApi.get<TaskListResponse>(`/api/admin/tasks?${params}`)
+    adminApi.get<AdminUserListResponse>(`/api/admin/users?${params}`)
       .then((data) => {
-        setTasks(data.tasks);
+        setUsers(data.users);
         setTotal(data.total);
         setTotalPages(data.total_pages);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       })
       .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : 'Failed to load tasks';
+        const message = err instanceof Error ? err.message : 'Failed to load users';
         toast.error(message);
       })
       .finally(() => setLoading(false));
-  }, [page, statusFilter, search]);
+  }, [page, roleFilter, search]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  // Debounced search-as-you-type
   const handleInputChange = (value: string) => {
     setSearchInput(value);
     clearTimeout(debounceRef.current);
@@ -55,7 +75,6 @@ export default function AdminTasksPage() {
     }, DEBOUNCE_MS);
   };
 
-  // Clean up timer on unmount
   useEffect(() => () => clearTimeout(debounceRef.current), []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -65,27 +84,26 @@ export default function AdminTasksPage() {
     setSearch(searchInput);
   };
 
-  const handleStatusChange = (value: string) => {
+  const handleRoleChange = (value: string) => {
     setPage(1);
-    setStatusFilter(value);
+    setRoleFilter(value);
   };
 
-  const handleRemove = async (task: Task) => {
-    if (!window.confirm(`Are you sure you want to remove "${task.title}"? This cannot be undone.`)) {
+  const handleToggleBan = async (user: AdminUser) => {
+    const action = user.is_banned ? 'unban' : 'ban';
+    if (!window.confirm(`Are you sure you want to ${action} "${user.display_name}" (${user.email})?`)) {
       return;
     }
-
-    setRemovingId(task.id);
+    setTogglingId(user.id);
     try {
-      await adminApi.del(`/api/admin/tasks/${task.id}`);
-      toast.success('Task removed');
-      setTasks((prev) => prev.filter((t) => t.id !== task.id));
-      setTotal((prev) => prev - 1);
+      await adminApi.post(`/api/admin/users/${user.id}/${action}`, {});
+      toast.success(`User ${action}ned`);
+      setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_banned: !u.is_banned } : u));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to remove task';
+      const message = err instanceof Error ? err.message : `Failed to ${action} user`;
       toast.error(message);
     } finally {
-      setRemovingId(null);
+      setTogglingId(null);
     }
   };
 
@@ -93,12 +111,12 @@ export default function AdminTasksPage() {
     <div className="space-y-8">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-white text-3xl font-bold mb-1">Task Management</h1>
-          <p className="text-slate-400">View and manage all platform tasks.</p>
+          <h1 className="text-white text-3xl font-bold mb-1">User Management</h1>
+          <p className="text-slate-400">View and manage all platform users.</p>
         </div>
         <div className="text-right">
           <p className="text-3xl font-bold text-white">{total}</p>
-          <p className="text-slate-400 text-sm">{search || statusFilter ? 'matching' : 'total'} tasks</p>
+          <p className="text-slate-400 text-sm">{search || roleFilter ? 'matching' : 'total'} users</p>
         </div>
       </div>
 
@@ -110,7 +128,7 @@ export default function AdminTasksPage() {
               type="text"
               value={searchInput}
               onChange={(e) => handleInputChange(e.target.value)}
-              placeholder="Search by title, category, task ID, buyer/seller name or email..."
+              placeholder="Search users..."
               className="flex-1 bg-card-dark border border-border-dark rounded-lg px-4 py-2.5 text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-primary/60"
             />
             <button
@@ -130,18 +148,18 @@ export default function AdminTasksPage() {
             )}
           </form>
           <select
-            value={statusFilter}
-            onChange={(e) => handleStatusChange(e.target.value)}
+            value={roleFilter}
+            onChange={(e) => handleRoleChange(e.target.value)}
             className="bg-card-dark border border-border-dark rounded-lg px-4 py-2.5 text-slate-200 text-sm focus:outline-none focus:border-primary/60"
           >
-            <option value="">All statuses</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+            <option value="">All users</option>
+            {ROLES.filter(Boolean).map((r) => (
+              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}{r === 'banned' ? '' : 's'}</option>
             ))}
           </select>
         </div>
         <p className="text-slate-500 text-xs">
-          Search by task title, slug, category, task ID, buyer/seller name, or email
+          Search by name, email, or user ID
         </p>
       </div>
 
@@ -149,10 +167,10 @@ export default function AdminTasksPage() {
         <div className="flex-1 flex items-center justify-center py-20">
           <p className="text-slate-400">Loading...</p>
         </div>
-      ) : tasks.length === 0 ? (
+      ) : users.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <p className="text-slate-400">
-            {search || statusFilter ? 'No tasks match your filters.' : 'No tasks found.'}
+            {search || roleFilter ? 'No users match your filters.' : 'No users found.'}
           </p>
         </div>
       ) : (
@@ -162,45 +180,74 @@ export default function AdminTasksPage() {
               <table className="w-full text-sm text-slate-300">
                 <thead>
                   <tr className="bg-card-dark/50">
-                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Title</th>
-                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Category</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Name</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Email</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Type</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Rating</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Posted</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Done</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Joined</th>
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Status</th>
-                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Budget</th>
-                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Bids</th>
-                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Created</th>
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tasks.map((task) => (
-                    <tr key={task.id} className="border-b border-border-dark hover:bg-card-dark/30">
+                  {users.map((user) => (
+                    <tr key={user.id} className="border-b border-border-dark hover:bg-card-dark/30">
                       <td className="px-4 py-3">
                         <Link
-                          to={`/tasks/${task.slug}`}
+                          to={`/profile/${user.id}`}
                           className="text-primary hover:text-primary/80 transition-colors"
                         >
-                          {task.title}
+                          {user.display_name}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">{task.category}</td>
+                      <td className="px-4 py-3 text-slate-400">{user.email}</td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={task.status} />
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          user.is_agent
+                            ? 'bg-purple-500/10 text-purple-400'
+                            : 'bg-sky-500/10 text-sky-400'
+                        }`}>
+                          {user.is_agent ? (user.agent_type || 'Agent') : 'Human'}
+                        </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {parseFloat(String(task.budget_min)).toLocaleString()}-{parseFloat(String(task.budget_max)).toLocaleString()} {task.currency}
+                        {user.avg_rating
+                          ? `${parseFloat(String(user.avg_rating)).toFixed(1)} (${user.total_ratings})`
+                          : <span className="text-slate-500">-</span>
+                        }
                       </td>
-                      <td className="px-4 py-3">{task.bid_count ?? 0}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {formatDate(task.created_at)}
+                      <td className="px-4 py-3">{user.tasks_posted}</td>
+                      <td className="px-4 py-3">{user.tasks_completed}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(user.created_at)}</td>
+                      <td className="px-4 py-3">
+                        {user.is_banned ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400">Banned</span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400">Active</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleRemove(task)}
-                          disabled={removingId === task.id}
-                          className="cursor-pointer text-rose-400 hover:text-rose-300 disabled:opacity-50 text-xs font-medium transition-colors"
-                        >
-                          {removingId === task.id ? 'Removing...' : 'Remove'}
-                        </button>
+                        <div className="flex gap-2">
+                          <Link
+                            to={`/admin/tasks?search=${encodeURIComponent(user.email)}`}
+                            className="text-sky-400 hover:text-sky-300 text-xs font-medium transition-colors"
+                          >
+                            Tasks
+                          </Link>
+                          <button
+                            onClick={() => handleToggleBan(user)}
+                            disabled={togglingId === user.id}
+                            className={`cursor-pointer text-xs font-medium transition-colors disabled:opacity-50 ${
+                              user.is_banned
+                                ? 'text-emerald-400 hover:text-emerald-300'
+                                : 'text-rose-400 hover:text-rose-300'
+                            }`}
+                          >
+                            {togglingId === user.id ? '...' : user.is_banned ? 'Unban' : 'Ban'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
