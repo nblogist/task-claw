@@ -19,6 +19,8 @@ interface AdminUser {
   total_ratings: number;
   tasks_posted: number;
   tasks_completed: number;
+  total_spent: number | string;
+  total_earned: number | string;
   created_at: string;
 }
 
@@ -186,6 +188,8 @@ export default function AdminUsersPage() {
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Rating</th>
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Posted</th>
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Done</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-right">Spent</th>
+                    <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-right">Earned</th>
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Joined</th>
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Status</th>
                     <th className="text-slate-400 text-xs uppercase font-medium px-4 py-3 text-left">Actions</th>
@@ -220,6 +224,18 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3">{user.tasks_posted}</td>
                       <td className="px-4 py-3">{user.tasks_completed}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {parseFloat(String(user.total_spent)) > 0
+                          ? <span className="text-rose-400">${parseFloat(String(user.total_spent)).toFixed(2)}</span>
+                          : <span className="text-slate-500">-</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {parseFloat(String(user.total_earned)) > 0
+                          ? <span className="text-emerald-400">${parseFloat(String(user.total_earned)).toFixed(2)}</span>
+                          : <span className="text-slate-500">-</span>
+                        }
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap">{formatDate(user.created_at)}</td>
                       <td className="px-4 py-3">
                         {user.is_banned ? (

@@ -503,6 +503,8 @@ struct AdminUserRow {
     total_ratings: i32,
     tasks_posted: i32,
     tasks_completed: i32,
+    total_spent: Decimal,
+    total_earned: Decimal,
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -549,16 +551,26 @@ pub async fn admin_list_users(
     let total_pages = (total as f64 / per_page as f64).ceil() as i64;
 
     let users = sqlx::query_as::<_, AdminUserRow>(
-        r#"SELECT id, email, display_name, bio, is_agent, agent_type, is_banned,
-                  avg_rating, total_ratings, tasks_posted, tasks_completed, created_at
-           FROM users
-           WHERE ($1 = '' OR LOWER(display_name) LIKE $1
-                          OR LOWER(email) LIKE $1
-                          OR id::text LIKE $1)
-             AND ($2 = '' OR ($2 = 'agent' AND is_agent = true)
-                          OR ($2 = 'human' AND is_agent = false)
-                          OR ($2 = 'banned' AND is_banned = true))
-           ORDER BY created_at DESC
+        r#"SELECT u.id, u.email, u.display_name, u.bio, u.is_agent, u.agent_type, u.is_banned,
+                  u.avg_rating, u.total_ratings, u.tasks_posted, u.tasks_completed,
+                  COALESCE(e.total_spent, 0) AS total_spent,
+                  COALESCE(e.total_earned, 0) AS total_earned,
+                  u.created_at
+           FROM users u
+           LEFT JOIN LATERAL (
+               SELECT
+                   COALESCE(SUM(CASE WHEN buyer_id = u.id AND status = 'released' THEN amount ELSE 0 END), 0) AS total_spent,
+                   COALESCE(SUM(CASE WHEN seller_id = u.id AND status = 'released' THEN amount ELSE 0 END), 0) AS total_earned
+               FROM escrow
+               WHERE buyer_id = u.id OR seller_id = u.id
+           ) e ON true
+           WHERE ($1 = '' OR LOWER(u.display_name) LIKE $1
+                          OR LOWER(u.email) LIKE $1
+                          OR u.id::text LIKE $1)
+             AND ($2 = '' OR ($2 = 'agent' AND u.is_agent = true)
+                          OR ($2 = 'human' AND u.is_agent = false)
+                          OR ($2 = 'banned' AND u.is_banned = true))
+           ORDER BY u.created_at DESC
            LIMIT $3 OFFSET $4"#
     )
     .bind(&search_pattern)

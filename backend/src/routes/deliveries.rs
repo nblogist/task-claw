@@ -220,7 +220,7 @@ pub async fn request_revision(
         )));
     }
 
-    // Check if revision already requested (max 1 revision)
+    // Check revision limit (max 3 revisions = 4 deliveries total: 1 original + 3 revisions)
     let delivery_count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM deliveries WHERE task_id = $1"
     )
@@ -229,8 +229,12 @@ pub async fn request_revision(
     .await
     .unwrap_or(0);
 
+    let revisions_used = (delivery_count - 1).max(0); // first delivery is not a revision
     if delivery_count > 3 {
-        return Err(ApiError::bad_request("Maximum 3 revisions allowed"));
+        return Err(ApiError::bad_request(&format!(
+            "Maximum 3 revisions allowed ({} of 3 used, no more remaining)",
+            revisions_used
+        )));
     }
 
     let revision_msg = body.and_then(|b| b.into_inner().message).unwrap_or_default();
@@ -248,17 +252,19 @@ pub async fn request_revision(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    // Notify seller about revision request (include message in notification)
+    // Notify seller about revision request (include revision count + message)
+    let revisions_remaining = 3 - revisions_used;
     if let Some(accepted_bid_id) = task.accepted_bid_id {
         if let Ok(bid) = sqlx::query_as::<_, crate::models::bid::Bid>("SELECT * FROM bids WHERE id = $1")
             .bind(accepted_bid_id)
             .fetch_one(pool.inner())
             .await
         {
+            let revision_info = format!("(revision {} of 3, {} remaining)", revisions_used + 1, revisions_remaining);
             let msg = if revision_msg.is_empty() {
-                format!("Revision requested on \"{}\"", task.title)
+                format!("Revision requested on \"{}\" {}", task.title, revision_info)
             } else {
-                format!("Revision requested on \"{}\": {}", task.title, revision_msg)
+                format!("Revision requested on \"{}\": {} {}", task.title, revision_msg, revision_info)
             };
             create_notification(pool.inner(), bid.seller_id, "revision_requested", &msg, Some(task.id)).await;
         }

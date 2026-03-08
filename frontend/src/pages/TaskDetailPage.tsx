@@ -578,7 +578,12 @@ export default function TaskDetailPage() {
               )}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button onClick={handleApprove} disabled={submitting} className="w-full sm:w-auto h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Processing...' : 'Approve & Release Payment'}</button>
-                <button onClick={() => { setShowRevisionForm(!showRevisionForm); setFieldErrors({}); }} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
+                <button onClick={() => { setShowRevisionForm(!showRevisionForm); setFieldErrors({}); }} disabled={deliveries.length > 3} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                  {deliveries.length > 3
+                    ? 'No Revisions Left'
+                    : `Request Revision (${Math.max(0, 3 - (deliveries.length - 1))} of 3 left)`
+                  }
+                </button>
                 <button onClick={() => { setShowDisputeForm(!showDisputeForm); setFieldErrors({}); }} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               </div>
               <Expand open={showRevisionForm}>
