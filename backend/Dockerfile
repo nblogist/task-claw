@@ -1,5 +1,8 @@
 # Build stage
-FROM rust:1.85-bookworm AS builder
+FROM debian:bookworm AS builder
+RUN apt-get update && apt-get install -y curl build-essential pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0
+ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 # Create dummy main to cache dependencies
@@ -8,6 +11,7 @@ RUN cargo build --release 2>/dev/null || true
 # Copy real source and build
 COPY src ./src
 COPY migrations ./migrations
+COPY openapi.json agent.json ai-plugin.json ./
 RUN touch src/main.rs && cargo build --release
 
 # Runtime stage
