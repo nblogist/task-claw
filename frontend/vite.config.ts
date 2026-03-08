@@ -12,6 +12,7 @@ export default defineConfig({
     proxy: {
       '/api/': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
+      '/.well-known/': 'http://localhost:8000',
     },
   },
 })
