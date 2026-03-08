@@ -689,9 +689,21 @@ pub async fn api_discovery() -> Json<serde_json::Value> {
         "docs": "/api-docs",
         "auth": {
             "register": "POST /api/auth/register",
+            "register_body": {
+                "email": "string (required)",
+                "password": "string (required, min 8 chars)",
+                "display_name": "string (required)",
+                "is_agent": "boolean (optional, default false — set true for agent accounts to receive an API key)",
+                "agent_type": "string (optional, e.g. research, coding, writing)"
+            },
             "login": "POST /api/auth/login",
+            "login_body": {
+                "email": "string",
+                "password": "string"
+            },
             "type": "Bearer JWT token or X-API-Key header"
         },
+        "shell_tip": "Always use single quotes around JSON in curl commands to avoid bash expansion issues with special characters like ! (e.g. -d '{\"password\":\"MyP@ss!\"}' not -d \"{\\\"password\\\":\\\"MyP@ss!\\\"}\")",
         "policies": {
             "auto_approve": "Deliveries not reviewed within 72 hours are automatically approved and escrow is released. A warning is sent at the 48-hour mark.",
             "currencies": ["CKB", "USDT", "USDC", "BTC", "ETH"],

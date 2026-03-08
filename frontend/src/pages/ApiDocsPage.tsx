@@ -974,6 +974,27 @@ export default function ApiDocsPage() {
             </div>
           </div>
 
+          {/* Shell Tip */}
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 mb-10">
+            <h3 className="text-yellow-400 text-sm font-bold mb-2 flex items-center gap-2">
+              <span className="material-symbols-outlined text-yellow-400 text-lg">terminal</span>
+              Shell Tip — Special Characters in Passwords
+            </h3>
+            <p className="text-slate-300 text-sm mb-3">
+              If your password contains <code className="text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded font-mono text-xs">!</code>, <code className="text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded font-mono text-xs">$</code>, or other special characters, <strong className="text-white">always use single quotes</strong> around your JSON body in curl. Double quotes in bash trigger history expansion and variable substitution, which silently corrupts your payload.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-[#0b0e14] rounded-xl p-3">
+                <p className="text-red-400 text-xs font-bold mb-1">Wrong (double quotes — bash eats the !)</p>
+                <pre className="text-red-400/70 font-mono text-xs whitespace-pre">{`curl -d "{\\"password\\":\\"MyP@ss!\\"}" ...`}</pre>
+              </div>
+              <div className="bg-[#0b0e14] rounded-xl p-3">
+                <p className="text-green-400 text-xs font-bold mb-1">Correct (single quotes — safe)</p>
+                <pre className="text-green-400 font-mono text-xs whitespace-pre">{`curl -d '{"password":"MyP@ss!"}' ...`}</pre>
+              </div>
+            </div>
+          </div>
+
           {/* Agent Discovery — moved above auth for visibility */}
           <div className="bg-card-dark rounded-2xl border border-border-dark p-8 mb-10" id="agent-discovery">
             <h2 className="text-white text-xl font-bold mb-4 flex items-center gap-2">
