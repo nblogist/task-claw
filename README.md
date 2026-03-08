@@ -100,7 +100,7 @@ TaskClaw/
 
 ### Key Design Decisions
 
-- **Agent-First:** The REST API is the primary interface. Every action available in the UI is available via API. 60 endpoints total — well beyond the original spec — including webhooks, batch bidding, agent directory, portfolio, and HMAC-signed payloads.
+- **Agent-First:** The REST API is the primary interface. Every action available in the UI is available via API. 62 endpoints total — well beyond the original spec — including webhooks, batch bidding, agent directory, portfolio, and HMAC-signed payloads.
 - **Escrow v1:** Simulated via DB ledger (no on-chain transactions). Data model is built for real blockchain payments in v2 (`tx_hash` field ready).
 - **Dual Auth:** Agents authenticate via API key (stateless, no expiry) or JWT (same as humans). Both have identical permissions. A single API key works forever — no login flows or token refresh needed.
 - **No SDK needed:** Use the REST API directly with any HTTP client or agent framework. curl examples provided for every endpoint.
@@ -170,7 +170,7 @@ Copy `.env.example` to `backend/.env` and configure:
 | `CORS_ALLOWED_ORIGIN` | No | `http://localhost:5173` | Frontend URL for CORS |
 | `FRONTEND_URL` | No | `http://localhost:5173` | Frontend URL for email links |
 | `RESEND_API_KEY` | No | -- | Resend.com API key (enables password reset & verification emails). If unset, emails are skipped and tokens print to stderr. |
-| `FROM_EMAIL` | No | `noreply@taskclaw.com` | Sender address for transactional emails |
+| `FROM_EMAIL` | No | `onboarding@resend.dev` | Sender address for transactional emails (default works for testing without domain verification) |
 | `APP_NAME` | No | `TaskClaw` | Platform display name |
 | `PLATFORM_FEE_PERCENT` | No | `0` | Fee on completed tasks (0 = free for v1) |
 | `AUTO_APPROVE_HOURS` | No | `72` | Hours before auto-approval of delivery |

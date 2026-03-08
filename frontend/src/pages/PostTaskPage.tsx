@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { Task, CategoryItem } from '../lib/types';
+import { type FieldErrors, scrollToFirstError } from '../lib/validation';
+import FieldError from '../components/ui/FieldError';
 
 const FALLBACK_CATEGORIES = [
   'Writing & Content',
@@ -27,6 +29,7 @@ export default function PostTaskPage() {
   const [currency, setCurrency] = useState('CKB');
   const [deadline, setDeadline] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -38,6 +41,12 @@ export default function PostTaskPage() {
       }
     }).catch(() => {});
   }, []);
+
+  const clearError = (field: string) => setFieldErrors(prev => {
+    if (!prev[field]) return prev;
+    const { [field]: _, ...rest } = prev;
+    return rest;
+  });
 
   if (!user) {
     return (
@@ -60,12 +69,22 @@ export default function PostTaskPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!title.trim()) { setError('Title is required'); return; }
-    if (!description.trim()) { setError('Description is required'); return; }
-    if (!budgetMin || !budgetMax) { setError('Budget range is required'); return; }
-    if (parseFloat(budgetMin) < 0 || parseFloat(budgetMax) < 0) { setError('Budget cannot be negative'); return; }
-    if (parseFloat(budgetMin) > parseFloat(budgetMax)) { setError('Min budget cannot exceed max budget'); return; }
-    if (!deadline) { setError('Deadline is required'); return; }
+    const errs: FieldErrors = {};
+    if (!title.trim()) errs.title = 'Title is required';
+    if (!description.trim()) errs.description = 'Description is required';
+    if (!budgetMin) errs.budgetMin = 'Min budget is required';
+    else if (isNaN(parseFloat(budgetMin)) || parseFloat(budgetMin) < 0) errs.budgetMin = 'Must be a valid non-negative number';
+    if (!budgetMax) errs.budgetMax = 'Max budget is required';
+    else if (isNaN(parseFloat(budgetMax)) || parseFloat(budgetMax) < 0) errs.budgetMax = 'Must be a valid non-negative number';
+    if (!errs.budgetMin && !errs.budgetMax && parseFloat(budgetMin) > parseFloat(budgetMax)) errs.budgetMax = 'Max budget must be greater than or equal to min budget';
+    if (!deadline) errs.deadline = 'Deadline is required';
+    else if (new Date(deadline) <= new Date()) errs.deadline = 'Deadline must be in the future';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const task = await api.post<Task>('/api/tasks', {
@@ -102,17 +121,23 @@ export default function PostTaskPage() {
 
         {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm animate-fade-in">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="bg-card-dark rounded-2xl border border-border-dark p-8 space-y-6">
-          <div>
+        <form onSubmit={handleSubmit} noValidate className="bg-card-dark rounded-2xl border border-border-dark p-8 space-y-6">
+          <div data-field="title">
             <label className="text-slate-300 text-sm font-medium mb-2 block">Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={120} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="What do you need done?" />
-            <p className="text-slate-500 text-xs mt-1 text-right">{title.length}/120</p>
+            <input type="text" value={title} onChange={(e) => { setTitle(e.target.value); clearError('title'); }} maxLength={120} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.title ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none`} placeholder="What do you need done?" />
+            <div className="flex justify-between">
+              <FieldError error={fieldErrors.title} />
+              <p className="text-slate-500 text-xs mt-1 text-right ml-auto">{title.length}/120</p>
+            </div>
           </div>
 
-          <div>
+          <div data-field="description">
             <label className="text-slate-300 text-sm font-medium mb-2 block">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} required maxLength={2000} className="w-full h-32 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Describe the task in detail..." />
-            <p className="text-slate-500 text-xs mt-1 text-right">{description.length}/2000</p>
+            <textarea value={description} onChange={(e) => { setDescription(e.target.value); clearError('description'); }} maxLength={2000} className={`w-full h-32 px-4 py-3 bg-background-dark border ${fieldErrors.description ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none resize-none`} placeholder="Describe the task in detail..." />
+            <div className="flex justify-between">
+              <FieldError error={fieldErrors.description} />
+              <p className="text-slate-500 text-xs mt-1 text-right ml-auto">{description.length}/2000</p>
+            </div>
           </div>
 
           <div>
@@ -128,13 +153,15 @@ export default function PostTaskPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
+            <div data-field="budgetMin">
               <label className="text-slate-300 text-sm font-medium mb-2 block">Min Budget</label>
-              <input type="number" min="0" step="any" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="50" />
+              <input type="number" min="0" step="any" value={budgetMin} onChange={(e) => { setBudgetMin(e.target.value); clearError('budgetMin'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.budgetMin ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none`} placeholder="50" />
+              <FieldError error={fieldErrors.budgetMin} />
             </div>
-            <div>
+            <div data-field="budgetMax">
               <label className="text-slate-300 text-sm font-medium mb-2 block">Max Budget</label>
-              <input type="number" min="0" step="any" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" placeholder="200" />
+              <input type="number" min="0" step="any" value={budgetMax} onChange={(e) => { setBudgetMax(e.target.value); clearError('budgetMax'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.budgetMax ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none`} placeholder="200" />
+              <FieldError error={fieldErrors.budgetMax} />
             </div>
             <div>
               <label className="text-slate-300 text-sm font-medium mb-2 block">Currency</label>
@@ -148,9 +175,10 @@ export default function PostTaskPage() {
             </div>
           </div>
 
-          <div>
+          <div data-field="deadline">
             <label className="text-slate-300 text-sm font-medium mb-2 block">Deadline</label>
-            <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none [color-scheme:dark] cursor-pointer" />
+            <input type="datetime-local" value={deadline} onChange={(e) => { setDeadline(e.target.value); clearError('deadline'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.deadline ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none [color-scheme:dark] cursor-pointer`} />
+            <FieldError error={fieldErrors.deadline} />
           </div>
 
           <button type="submit" disabled={submitting} className="w-full h-14 bg-primary text-white rounded-xl text-lg font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Posting...' : 'Post Task'}</button>

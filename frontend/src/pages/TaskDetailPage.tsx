@@ -6,6 +6,8 @@ import type { Task, Bid, Delivery, MessageWithSender, MessageListResponse } from
 import StatusBadge from '../components/StatusBadge';
 import { formatDate } from '../lib/dates';
 import Expand from '../components/ui/Expand';
+import { type FieldErrors, scrollToFirstError, isValidUrl } from '../lib/validation';
+import FieldError from '../components/ui/FieldError';
 
 interface TaskDetail extends Task {
   bid_count: number;
@@ -66,6 +68,13 @@ export default function TaskDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const clearError = (field: string) => setFieldErrors(prev => {
+    if (!prev[field]) return prev;
+    const { [field]: _, ...rest } = prev;
+    return rest;
+  });
 
   const fetchTask = async () => {
     if (!slug) return;
@@ -118,7 +127,19 @@ export default function TaskDetailPage() {
 
   const handleBid = async () => {
     if (!task || submitting) return;
-    setError(''); setSuccess(''); setSubmitting(true);
+    setError(''); setSuccess('');
+    const errs: FieldErrors = {};
+    if (!bidPrice) errs.bidPrice = 'Price is required';
+    else if (isNaN(parseFloat(bidPrice)) || parseFloat(bidPrice) <= 0) errs.bidPrice = 'Price must be a positive number';
+    if (!bidDays) errs.bidDays = 'Delivery days is required';
+    else { const d = parseInt(bidDays); if (isNaN(d) || d < 1 || d > 365) errs.bidDays = 'Must be between 1 and 365 days'; }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/bids`, {
         price: parseFloat(bidPrice),
@@ -144,7 +165,17 @@ export default function TaskDetailPage() {
 
   const handleDeliver = async () => {
     if (!task || submitting) return;
-    setError(''); setSuccess(''); setSubmitting(true);
+    setError(''); setSuccess('');
+    const errs: FieldErrors = {};
+    if (!deliveryMsg.trim()) errs.deliveryMsg = 'Delivery message is required';
+    if (deliveryUrl.trim() && !isValidUrl(deliveryUrl.trim())) errs.deliveryUrl = 'Please enter a valid URL (e.g. https://example.com)';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/deliver`, {
         message: deliveryMsg,
@@ -182,8 +213,17 @@ export default function TaskDetailPage() {
   };
 
   const handleDispute = async () => {
-    if (!task || !disputeReason.trim() || submitting) return;
-    setError(''); setSuccess(''); setSubmitting(true);
+    if (!task || submitting) return;
+    setError(''); setSuccess('');
+    const errs: FieldErrors = {};
+    if (!disputeReason.trim()) errs.disputeReason = 'Please describe the reason for this dispute';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/dispute`, { reason: disputeReason.trim() });
       setSuccess('Dispute raised.');
@@ -205,8 +245,17 @@ export default function TaskDetailPage() {
   };
 
   const handleRate = async () => {
-    if (!task || ratingScore === 0 || submitting) return;
-    setError(''); setSuccess(''); setSubmitting(true);
+    if (!task || submitting) return;
+    setError(''); setSuccess('');
+    const errs: FieldErrors = {};
+    if (ratingScore === 0) errs.ratingScore = 'Please select a star rating';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
       await api.post(`/api/tasks/${task.id}/rate`, { score: ratingScore, comment: ratingComment || null });
       setSuccess('Rating submitted!');
@@ -219,7 +268,20 @@ export default function TaskDetailPage() {
 
   const handleEditTask = async () => {
     if (!task || submitting) return;
-    setError(''); setSuccess(''); setSubmitting(true);
+    setError(''); setSuccess('');
+    const errs: FieldErrors = {};
+    if (!editTitle.trim()) errs.editTitle = 'Title is required';
+    if (!editDescription.trim()) errs.editDescription = 'Description is required';
+    if (editBudgetMin && (isNaN(parseFloat(editBudgetMin)) || parseFloat(editBudgetMin) < 0)) errs.editBudgetMin = 'Must be a valid non-negative number';
+    if (editBudgetMax && (isNaN(parseFloat(editBudgetMax)) || parseFloat(editBudgetMax) < 0)) errs.editBudgetMax = 'Must be a valid non-negative number';
+    if (!errs.editBudgetMin && !errs.editBudgetMax && editBudgetMin && editBudgetMax && parseFloat(editBudgetMin) > parseFloat(editBudgetMax)) errs.editBudgetMax = 'Max must be >= min';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
       const body: Record<string, unknown> = {};
       if (editTitle.trim() && editTitle !== task.title) body.title = editTitle;
@@ -246,7 +308,19 @@ export default function TaskDetailPage() {
 
   const handleEditBid = async (bidId: string) => {
     if (!task || submitting) return;
-    setError(''); setSuccess(''); setSubmitting(true);
+    setError(''); setSuccess('');
+    const errs: FieldErrors = {};
+    if (!editBidPrice) errs.editBidPrice = 'Price is required';
+    else if (isNaN(parseFloat(editBidPrice)) || parseFloat(editBidPrice) <= 0) errs.editBidPrice = 'Price must be a positive number';
+    if (!editBidDays) errs.editBidDays = 'Delivery days is required';
+    else { const d = parseInt(editBidDays); if (isNaN(d) || d < 1 || d > 365) errs.editBidDays = 'Must be between 1 and 365 days'; }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
       await api.put(`/api/tasks/${task.id}/bids/${bidId}`, {
         price: parseFloat(editBidPrice),
@@ -326,7 +400,7 @@ export default function TaskDetailPage() {
             {isBuyer && (statusStr === 'open' || statusStr === 'bidding') && (
               <div className="flex gap-2 flex-shrink-0">
                 <button
-                  onClick={() => { setEditTitle(task.title); setEditDescription(task.description); setEditBudgetMin(String(task.budget_min)); setEditBudgetMax(String(task.budget_max)); setShowEditForm(!showEditForm); }}
+                  onClick={() => { setEditTitle(task.title); setEditDescription(task.description); setEditBudgetMin(String(task.budget_min)); setEditBudgetMax(String(task.budget_max)); setShowEditForm(!showEditForm); setFieldErrors({}); }}
                   className="h-9 px-4 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-xs font-bold hover:bg-slate-800 cursor-pointer"
                 >
                   Edit
@@ -346,15 +420,27 @@ export default function TaskDetailPage() {
           <Expand open={showEditForm}>
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-6 space-y-4 animate-fade-in">
               <h3 className="text-white font-bold">Edit Task</h3>
-              <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} maxLength={120} className="w-full h-10 px-3 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Title" />
-              <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} maxLength={2000} className="w-full h-24 px-3 py-2 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Description" />
+              <div data-field="editTitle">
+                <input type="text" value={editTitle} onChange={e => { setEditTitle(e.target.value); clearError('editTitle'); }} maxLength={120} className={`w-full h-10 px-3 bg-background-dark border ${fieldErrors.editTitle ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none`} placeholder="Title" />
+                <FieldError error={fieldErrors.editTitle} />
+              </div>
+              <div data-field="editDescription">
+                <textarea value={editDescription} onChange={e => { setEditDescription(e.target.value); clearError('editDescription'); }} maxLength={2000} className={`w-full h-24 px-3 py-2 bg-background-dark border ${fieldErrors.editDescription ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none`} placeholder="Description" />
+                <FieldError error={fieldErrors.editDescription} />
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <input type="number" value={editBudgetMin} onChange={e => setEditBudgetMin(e.target.value)} className="h-10 px-3 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Min budget" />
-                <input type="number" value={editBudgetMax} onChange={e => setEditBudgetMax(e.target.value)} className="h-10 px-3 bg-background-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Max budget" />
+                <div data-field="editBudgetMin">
+                  <input type="number" value={editBudgetMin} onChange={e => { setEditBudgetMin(e.target.value); clearError('editBudgetMin'); }} className={`w-full h-10 px-3 bg-background-dark border ${fieldErrors.editBudgetMin ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none`} placeholder="Min budget" />
+                  <FieldError error={fieldErrors.editBudgetMin} />
+                </div>
+                <div data-field="editBudgetMax">
+                  <input type="number" value={editBudgetMax} onChange={e => { setEditBudgetMax(e.target.value); clearError('editBudgetMax'); }} className={`w-full h-10 px-3 bg-background-dark border ${fieldErrors.editBudgetMax ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none`} placeholder="Max budget" />
+                  <FieldError error={fieldErrors.editBudgetMax} />
+                </div>
               </div>
               <div className="flex gap-3">
                 <button onClick={handleEditTask} disabled={submitting} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50">Save</button>
-                <button onClick={() => setShowEditForm(false)} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+                <button onClick={() => { setShowEditForm(false); setFieldErrors({}); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
               </div>
             </div>
           </Expand>
@@ -450,10 +536,16 @@ export default function TaskDetailPage() {
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Submit a Bid</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <input type="number" placeholder={`Price (${parseFloat(String(task.budget_min)).toLocaleString()} - ${parseFloat(String(task.budget_max)).toLocaleString()})`} value={bidPrice} onChange={(e) => setBidPrice(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" />
-                <input type="number" placeholder="Delivery days (1-365)" min={1} max={365} value={bidDays} onChange={(e) => setBidDays(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" />
+                <div data-field="bidPrice">
+                  <input type="number" placeholder={`Price (${parseFloat(String(task.budget_min)).toLocaleString()} - ${parseFloat(String(task.budget_max)).toLocaleString()})`} value={bidPrice} onChange={(e) => { setBidPrice(e.target.value); clearError('bidPrice'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.bidPrice ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none`} />
+                  <FieldError error={fieldErrors.bidPrice} />
+                </div>
+                <div data-field="bidDays">
+                  <input type="number" placeholder="Delivery days (1-365)" min={1} max={365} value={bidDays} onChange={(e) => { setBidDays(e.target.value); clearError('bidDays'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.bidDays ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none`} />
+                  <FieldError error={fieldErrors.bidDays} />
+                </div>
               </div>
-              <textarea placeholder="Your pitch (max 500 chars)" value={bidPitch} onChange={(e) => setBidPitch(e.target.value)} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
+              <textarea placeholder="Your pitch (optional, max 500 chars)" value={bidPitch} onChange={(e) => setBidPitch(e.target.value)} maxLength={500} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
               <button onClick={handleBid} disabled={submitting} className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Bid'}</button>
             </div>
           )}
@@ -462,9 +554,15 @@ export default function TaskDetailPage() {
           {isAcceptedSeller && (statusStr === 'in_escrow') && (
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Submit Delivery</h2>
-              <textarea placeholder="Delivery message (max 1000 chars)" value={deliveryMsg} onChange={(e) => setDeliveryMsg(e.target.value)} className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4" />
-              <input type="url" placeholder="URL (optional)" value={deliveryUrl} onChange={(e) => setDeliveryUrl(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none mb-4" />
-              <button onClick={handleDeliver} disabled={submitting} className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Delivery'}</button>
+              <div data-field="deliveryMsg">
+                <textarea placeholder="Delivery message (max 1000 chars)" value={deliveryMsg} onChange={(e) => { setDeliveryMsg(e.target.value); clearError('deliveryMsg'); }} maxLength={1000} className={`w-full h-24 px-4 py-3 bg-background-dark border ${fieldErrors.deliveryMsg ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-1`} />
+                <FieldError error={fieldErrors.deliveryMsg} />
+              </div>
+              <div data-field="deliveryUrl" className="mt-3">
+                <input type="url" placeholder="URL (optional)" value={deliveryUrl} onChange={(e) => { setDeliveryUrl(e.target.value); clearError('deliveryUrl'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.deliveryUrl ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none`} />
+                <FieldError error={fieldErrors.deliveryUrl} />
+              </div>
+              <button onClick={handleDeliver} disabled={submitting} className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-4">{submitting ? 'Submitting...' : 'Submit Delivery'}</button>
             </div>
           )}
 
@@ -480,8 +578,8 @@ export default function TaskDetailPage() {
               )}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button onClick={handleApprove} disabled={submitting} className="w-full sm:w-auto h-12 px-8 bg-green-600 text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Processing...' : 'Approve & Release Payment'}</button>
-                <button onClick={() => setShowRevisionForm(!showRevisionForm)} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
-                <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
+                <button onClick={() => { setShowRevisionForm(!showRevisionForm); setFieldErrors({}); }} className="w-full sm:w-auto h-12 px-8 bg-card-dark text-slate-300 border border-border-dark rounded-xl font-bold hover:bg-slate-800 transition-all cursor-pointer">Request Revision</button>
+                <button onClick={() => { setShowDisputeForm(!showDisputeForm); setFieldErrors({}); }} className="w-full sm:w-auto h-12 px-8 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               </div>
               <Expand open={showRevisionForm}>
                 <div className="mt-4 space-y-3">
@@ -489,6 +587,7 @@ export default function TaskDetailPage() {
                     value={revisionMessage}
                     onChange={(e) => setRevisionMessage(e.target.value)}
                     placeholder="What changes do you need? (optional)"
+                    maxLength={2000}
                     className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none"
                   />
                   <div className="flex gap-3">
@@ -499,15 +598,19 @@ export default function TaskDetailPage() {
               </Expand>
               <Expand open={showDisputeForm}>
                 <div className="mt-4 space-y-3">
-                  <textarea
-                    value={disputeReason}
-                    onChange={(e) => setDisputeReason(e.target.value)}
-                    placeholder="Describe the reason for this dispute..."
-                    className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none"
-                  />
+                  <div data-field="disputeReason">
+                    <textarea
+                      value={disputeReason}
+                      onChange={(e) => { setDisputeReason(e.target.value); clearError('disputeReason'); }}
+                      placeholder="Describe the reason for this dispute..."
+                      maxLength={2000}
+                      className={`w-full h-24 px-4 py-3 bg-background-dark border ${fieldErrors.disputeReason ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none`}
+                    />
+                    <FieldError error={fieldErrors.disputeReason} />
+                  </div>
                   <div className="flex gap-3">
-                    <button onClick={handleDispute} disabled={!disputeReason.trim() || submitting} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Dispute'}</button>
-                    <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
+                    <button onClick={handleDispute} disabled={submitting} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Dispute'}</button>
+                    <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); setFieldErrors({}); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
               </Expand>
@@ -517,18 +620,22 @@ export default function TaskDetailPage() {
           {/* Seller Dispute Option */}
           {isAcceptedSeller && (statusStr === 'delivered' || statusStr === 'in_escrow') && (
             <div className="mb-6">
-              <button onClick={() => setShowDisputeForm(!showDisputeForm)} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-sm font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
+              <button onClick={() => { setShowDisputeForm(!showDisputeForm); setFieldErrors({}); }} className="h-10 px-6 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-sm font-bold hover:bg-red-600/30 transition-all cursor-pointer">Raise Dispute</button>
               <Expand open={showDisputeForm}>
                 <div className="mt-3 space-y-3">
-                  <textarea
-                    value={disputeReason}
-                    onChange={(e) => setDisputeReason(e.target.value)}
-                    placeholder="Describe the reason for this dispute..."
-                    className="w-full h-24 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none"
-                  />
+                  <div data-field="disputeReason">
+                    <textarea
+                      value={disputeReason}
+                      onChange={(e) => { setDisputeReason(e.target.value); clearError('disputeReason'); }}
+                      placeholder="Describe the reason for this dispute..."
+                      maxLength={2000}
+                      className={`w-full h-24 px-4 py-3 bg-background-dark border ${fieldErrors.disputeReason ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-red-500 outline-none resize-none`}
+                    />
+                    <FieldError error={fieldErrors.disputeReason} />
+                  </div>
                   <div className="flex gap-3">
-                    <button onClick={handleDispute} disabled={!disputeReason.trim() || submitting} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Dispute'}</button>
-                    <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
+                    <button onClick={handleDispute} disabled={submitting} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Dispute'}</button>
+                    <button onClick={() => { setShowDisputeForm(false); setDisputeReason(''); setFieldErrors({}); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                   </div>
                 </div>
               </Expand>
@@ -607,28 +714,32 @@ export default function TaskDetailPage() {
           {user && task && statusStr === 'completed' && (isBuyer || isAcceptedSeller) && !hasRated && (
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Rate this experience</h2>
-              <div className="flex gap-1 mb-4">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setRatingScore(star)}
-                    aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
-                    className={`cursor-pointer transition-colors ${star <= ratingScore ? 'text-yellow-400' : 'text-slate-600'}`}
-                  >
-                    <span className="material-symbols-outlined text-3xl">star</span>
-                  </button>
-                ))}
+              <div data-field="ratingScore">
+                <div className="flex gap-1 mb-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => { setRatingScore(star); clearError('ratingScore'); }}
+                      aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
+                      className={`cursor-pointer transition-colors ${star <= ratingScore ? 'text-yellow-400' : 'text-slate-600'}`}
+                    >
+                      <span className="material-symbols-outlined text-3xl">star</span>
+                    </button>
+                  ))}
+                </div>
+                <FieldError error={fieldErrors.ratingScore} />
               </div>
               <textarea
                 placeholder="Comment (optional)"
                 value={ratingComment}
                 onChange={(e) => setRatingComment(e.target.value)}
-                className="w-full h-20 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4"
+                maxLength={2000}
+                className="w-full h-20 px-4 py-3 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-4 mt-3"
               />
               <button
                 onClick={handleRate}
-                disabled={ratingScore === 0 || submitting}
+                disabled={submitting}
                 className="h-12 px-8 bg-primary text-white rounded-xl font-bold hover:brightness-110 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Submitting...' : 'Submit Rating'}
@@ -670,7 +781,7 @@ export default function TaskDetailPage() {
                     {user && bid.seller_id === user.id && bid.status === 'pending' && (
                       <div className="flex gap-2 mt-3">
                         <button
-                          onClick={() => { setEditingBidId(editingBidId === bid.id ? null : bid.id); setEditBidPrice(String(bid.price)); setEditBidDays(String(bid.estimated_delivery_days)); setEditBidPitch(bid.pitch); }}
+                          onClick={() => { setEditingBidId(editingBidId === bid.id ? null : bid.id); setEditBidPrice(String(bid.price)); setEditBidDays(String(bid.estimated_delivery_days)); setEditBidPitch(bid.pitch); setFieldErrors({}); }}
                           className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer"
                         >
                           Edit Bid
@@ -681,13 +792,19 @@ export default function TaskDetailPage() {
                     {editingBidId === bid.id && (
                       <div className="mt-3 space-y-3 bg-background-dark rounded-xl p-4 animate-fade-in">
                         <div className="grid grid-cols-2 gap-3">
-                          <input type="number" value={editBidPrice} onChange={e => setEditBidPrice(e.target.value)} className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Price" />
-                          <input type="number" value={editBidDays} onChange={e => setEditBidDays(e.target.value)} className="h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" placeholder="Days" />
+                          <div data-field="editBidPrice">
+                            <input type="number" value={editBidPrice} onChange={e => { setEditBidPrice(e.target.value); clearError('editBidPrice'); }} className={`w-full h-10 px-3 bg-card-dark border ${fieldErrors.editBidPrice ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none`} placeholder="Price" />
+                            <FieldError error={fieldErrors.editBidPrice} />
+                          </div>
+                          <div data-field="editBidDays">
+                            <input type="number" value={editBidDays} onChange={e => { setEditBidDays(e.target.value); clearError('editBidDays'); }} className={`w-full h-10 px-3 bg-card-dark border ${fieldErrors.editBidDays ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none`} placeholder="Days" />
+                            <FieldError error={fieldErrors.editBidDays} />
+                          </div>
                         </div>
-                        <textarea value={editBidPitch} onChange={e => setEditBidPitch(e.target.value)} className="w-full h-20 px-3 py-2 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Pitch" />
+                        <textarea value={editBidPitch} onChange={e => setEditBidPitch(e.target.value)} maxLength={500} className="w-full h-20 px-3 py-2 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none" placeholder="Pitch" />
                         <div className="flex gap-2">
                           <button onClick={() => handleEditBid(bid.id)} disabled={submitting} className="h-9 px-5 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer disabled:opacity-50">Save</button>
-                          <button onClick={() => setEditingBidId(null)} className="h-9 px-5 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+                          <button onClick={() => { setEditingBidId(null); setFieldErrors({}); }} className="h-9 px-5 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
                         </div>
                       </div>
                     )}

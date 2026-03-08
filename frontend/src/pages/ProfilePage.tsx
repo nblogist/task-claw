@@ -7,6 +7,8 @@ import { handleApiError } from '../lib/handleApiError';
 import type { PublicUser, PortfolioItemWithRating, PortfolioListResponse, RatingWithContext, RatingListResponse } from '../lib/types';
 import Expand from '../components/ui/Expand';
 import { formatDate } from '../lib/dates';
+import { type FieldErrors, scrollToFirstError, isValidUrl } from '../lib/validation';
+import FieldError from '../components/ui/FieldError';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -17,9 +19,11 @@ export default function ProfilePage() {
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editError, setEditError] = useState('');
+  const [editFieldErrors, setEditFieldErrors] = useState<FieldErrors>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [deleteFieldErrors, setDeleteFieldErrors] = useState<FieldErrors>({});
 
   // Reviews
   const [reviews, setReviews] = useState<RatingWithContext[]>([]);
@@ -32,6 +36,7 @@ export default function ProfilePage() {
   const [pDesc, setPDesc] = useState('');
   const [pUrl, setPUrl] = useState('');
   const [pError, setPError] = useState('');
+  const [pFieldErrors, setPFieldErrors] = useState<FieldErrors>({});
 
   const isOwnProfile = authUser && id === authUser.id;
 
@@ -43,8 +48,34 @@ export default function ProfilePage() {
     }
   }, [id]);
 
+  const clearEditError = (field: string) => setEditFieldErrors(prev => {
+    if (!prev[field]) return prev;
+    const { [field]: _, ...rest } = prev;
+    return rest;
+  });
+
+  const clearDeleteError = (field: string) => setDeleteFieldErrors(prev => {
+    if (!prev[field]) return prev;
+    const { [field]: _, ...rest } = prev;
+    return rest;
+  });
+
+  const clearPError = (field: string) => setPFieldErrors(prev => {
+    if (!prev[field]) return prev;
+    const { [field]: _, ...rest } = prev;
+    return rest;
+  });
+
   const handleSaveProfile = async () => {
     setEditError('');
+    const errs: FieldErrors = {};
+    if (!editName.trim()) errs.editName = 'Display name is required';
+    if (Object.keys(errs).length > 0) {
+      setEditFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setEditFieldErrors({});
     try {
       const updated = await api.put<PublicUser>('/api/auth/me', {
         display_name: editName || undefined,
@@ -59,7 +90,14 @@ export default function ProfilePage() {
 
   const handleDeleteAccount = async () => {
     setDeleteError('');
-    if (!deletePassword) { setDeleteError('Password is required'); return; }
+    const errs: FieldErrors = {};
+    if (!deletePassword) errs.deletePassword = 'Password is required to delete your account';
+    if (Object.keys(errs).length > 0) {
+      setDeleteFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setDeleteFieldErrors({});
     try {
       await api.del('/api/auth/me', { password: deletePassword });
       logout();
@@ -69,7 +107,15 @@ export default function ProfilePage() {
 
   const handleAddPortfolio = async () => {
     setPError('');
-    if (!pTitle.trim()) { setPError('Title is required'); return; }
+    const errs: FieldErrors = {};
+    if (!pTitle.trim()) errs.pTitle = 'Title is required';
+    if (pUrl.trim() && !isValidUrl(pUrl.trim())) errs.pUrl = 'Please enter a valid URL (e.g. https://example.com)';
+    if (Object.keys(errs).length > 0) {
+      setPFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setPFieldErrors({});
     try {
       await api.post('/api/portfolio', { title: pTitle, description: pDesc, url: pUrl || null });
       setPTitle(''); setPDesc(''); setPUrl('');
@@ -160,7 +206,7 @@ export default function ProfilePage() {
             <>
               {!editing && (
                 <button
-                  onClick={() => { setEditName(user.display_name); setEditBio(user.bio || ''); setEditing(true); }}
+                  onClick={() => { setEditName(user.display_name); setEditBio(user.bio || ''); setEditing(true); setEditFieldErrors({}); }}
                   className="mt-4 h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 transition-all cursor-pointer"
                 >
                   Edit Profile
@@ -169,9 +215,10 @@ export default function ProfilePage() {
               <Expand open={editing}>
                 <div className="mt-6 space-y-4 border-t border-border-dark pt-6">
                   {editError && <p className="text-red-400 text-sm">{editError}</p>}
-                  <div>
+                  <div data-field="editName">
                     <label className="text-slate-300 text-sm font-medium mb-2 block">Display Name</label>
-                    <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 focus:border-primary outline-none" />
+                    <input type="text" value={editName} onChange={(e) => { setEditName(e.target.value); clearEditError('editName'); }} className={`w-full h-12 px-4 bg-background-dark border ${editFieldErrors.editName ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none`} />
+                    <FieldError error={editFieldErrors.editName} />
                   </div>
                   <div>
                     <label className="text-slate-300 text-sm font-medium mb-2 block">Bio</label>
@@ -179,7 +226,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex gap-3">
                     <button onClick={handleSaveProfile} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Save</button>
-                    <button onClick={() => setEditing(false)} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+                    <button onClick={() => { setEditing(false); setEditFieldErrors({}); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
                   </div>
                 </div>
               </Expand>
@@ -215,7 +262,7 @@ export default function ProfilePage() {
                 <h2 className="text-white text-lg font-bold">Portfolio</h2>
                 {isOwnProfile && (
                   <button
-                    onClick={() => setShowAddPortfolio(!showAddPortfolio)}
+                    onClick={() => { setShowAddPortfolio(!showAddPortfolio); setPFieldErrors({}); }}
                     className="h-8 px-4 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary/20 cursor-pointer"
                   >
                     {showAddPortfolio ? 'Cancel' : '+ Add Item'}
@@ -225,9 +272,15 @@ export default function ProfilePage() {
               <Expand open={showAddPortfolio}>
                 <div className="bg-background-dark rounded-xl p-4 mb-4 space-y-3">
                   {pError && <p className="text-red-400 text-sm">{pError}</p>}
-                  <input type="text" value={pTitle} onChange={e => setPTitle(e.target.value)} placeholder="Title" maxLength={120} className="w-full h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" />
+                  <div data-field="pTitle">
+                    <input type="text" value={pTitle} onChange={e => { setPTitle(e.target.value); clearPError('pTitle'); }} placeholder="Title" maxLength={120} className={`w-full h-10 px-3 bg-card-dark border ${pFieldErrors.pTitle ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none`} />
+                    <FieldError error={pFieldErrors.pTitle} />
+                  </div>
                   <textarea value={pDesc} onChange={e => setPDesc(e.target.value)} placeholder="Description (optional)" maxLength={2000} className="w-full h-20 px-3 py-2 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none resize-none" />
-                  <input type="url" value={pUrl} onChange={e => setPUrl(e.target.value)} placeholder="URL (optional)" className="w-full h-10 px-3 bg-card-dark border border-border-dark rounded-lg text-sm text-slate-100 focus:border-primary outline-none" />
+                  <div data-field="pUrl">
+                    <input type="url" value={pUrl} onChange={e => { setPUrl(e.target.value); clearPError('pUrl'); }} placeholder="URL (optional)" className={`w-full h-10 px-3 bg-card-dark border ${pFieldErrors.pUrl ? 'border-red-500' : 'border-border-dark'} rounded-lg text-sm text-slate-100 focus:border-primary outline-none`} />
+                    <FieldError error={pFieldErrors.pUrl} />
+                  </div>
                   <button onClick={handleAddPortfolio} className="h-10 px-6 bg-primary text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Save</button>
                 </div>
               </Expand>
@@ -264,7 +317,7 @@ export default function ProfilePage() {
           {isOwnProfile && !editing && (
             <div className="mt-8 border-t border-border-dark pt-6">
               <button
-                onClick={() => setShowDeleteConfirm(v => !v)}
+                onClick={() => { setShowDeleteConfirm(v => !v); setDeleteFieldErrors({}); }}
                 className="h-10 px-6 bg-red-600/10 text-red-400 border border-red-600/20 rounded-lg text-sm font-bold hover:bg-red-600/20 transition-all cursor-pointer"
               >
                 Delete Account
@@ -273,16 +326,19 @@ export default function ProfilePage() {
                 <div className="space-y-3 mt-4">
                   <p className="text-red-400 text-sm font-semibold">This action is permanent and cannot be undone.</p>
                   {deleteError && <p className="text-red-400 text-sm">{deleteError}</p>}
-                  <input
-                    type="password"
-                    value={deletePassword}
-                    onChange={(e) => setDeletePassword(e.target.value)}
-                    placeholder="Enter your password to confirm"
-                    className="w-full h-12 px-4 bg-background-dark border border-red-600/30 rounded-xl text-sm text-slate-100 focus:border-red-500 outline-none"
-                  />
+                  <div data-field="deletePassword">
+                    <input
+                      type="password"
+                      value={deletePassword}
+                      onChange={(e) => { setDeletePassword(e.target.value); clearDeleteError('deletePassword'); }}
+                      placeholder="Enter your password to confirm"
+                      className={`w-full h-12 px-4 bg-background-dark border ${deleteFieldErrors.deletePassword ? 'border-red-500' : 'border-red-600/30'} rounded-xl text-sm text-slate-100 focus:border-red-500 outline-none`}
+                    />
+                    <FieldError error={deleteFieldErrors.deletePassword} />
+                  </div>
                   <div className="flex gap-3">
                     <button onClick={handleDeleteAccount} className="h-10 px-6 bg-red-600 text-white rounded-lg text-sm font-bold hover:brightness-110 cursor-pointer">Confirm Delete</button>
-                    <button onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); setDeleteError(''); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
+                    <button onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); setDeleteError(''); setDeleteFieldErrors({}); }} className="h-10 px-6 bg-card-dark text-slate-300 border border-border-dark rounded-lg text-sm font-bold hover:bg-slate-800 cursor-pointer">Cancel</button>
                   </div>
                 </div>
               </Expand>

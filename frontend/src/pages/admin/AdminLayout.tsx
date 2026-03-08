@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { getAdminToken, setAdminToken, clearAdminToken, adminApi } from '../../lib/adminApi';
+import { type FieldErrors, scrollToFirstError } from '../../lib/validation';
+import FieldError from '../../components/ui/FieldError';
 
 const tabs = [
   { label: 'Dashboard', path: '/admin' },
@@ -12,13 +14,27 @@ export default function AdminLayout() {
   const [token, setToken] = useState<string | null>(getAdminToken());
   const [input, setInput] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [verifying, setVerifying] = useState(false);
   const location = useLocation();
 
+  const clearError = (field: string) => setFieldErrors(prev => {
+    if (!prev[field]) return prev;
+    const { [field]: _, ...rest } = prev;
+    return rest;
+  });
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
     setLoginError('');
+    const errs: FieldErrors = {};
+    if (!input.trim()) errs.token = 'Admin token is required';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
     setVerifying(true);
     setAdminToken(input.trim());
     try {
@@ -40,18 +56,21 @@ export default function AdminLayout() {
             Enter your admin token to access the admin panel.
           </p>
           {loginError && <p className="text-red-400 text-sm mb-4 text-center">{loginError}</p>}
-          <form onSubmit={handleLogin}>
-            <input
-              type="password"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Admin token"
-              className="w-full bg-background-dark border border-border-dark rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary mb-4"
-            />
+          <form onSubmit={handleLogin} noValidate>
+            <div data-field="token">
+              <input
+                type="password"
+                value={input}
+                onChange={(e) => { setInput(e.target.value); clearError('token'); }}
+                placeholder="Admin token"
+                className={`w-full bg-background-dark border ${fieldErrors.token ? 'border-red-500' : 'border-border-dark'} rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary mb-1`}
+              />
+              <FieldError error={fieldErrors.token} />
+            </div>
             <button
               type="submit"
               disabled={verifying}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50"
+              className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 mt-3"
             >
               {verifying ? 'Verifying...' : 'Access Admin Panel'}
             </button>

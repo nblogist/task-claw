@@ -18,7 +18,7 @@ impl EmailService {
             return None;
         }
         let from_email = std::env::var("FROM_EMAIL")
-            .unwrap_or_else(|_| "noreply@taskclaw.com".to_string());
+            .unwrap_or_else(|_| "onboarding@resend.dev".to_string());
         Some(Self {
             client: Client::new(),
             api_key,

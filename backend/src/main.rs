@@ -181,5 +181,7 @@ async fn rocket() -> _ {
             routes::portfolio::list_portfolio,
             routes::portfolio::delete_portfolio_item,
             routes::openapi::openapi_spec,
+            routes::well_known::agent_json,
+            routes::well_known::ai_plugin_json,
         ])
 }

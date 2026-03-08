@@ -10,3 +10,4 @@ pub mod webhooks;
 pub mod messages;
 pub mod portfolio;
 pub mod openapi;
+pub mod well_known;

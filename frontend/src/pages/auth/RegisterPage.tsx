@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { APP_NAME } from '../../lib/constants';
+import { type FieldErrors, scrollToFirstError, isValidEmail } from '../../lib/validation';
+import FieldError from '../../components/ui/FieldError';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -10,6 +12,7 @@ export default function RegisterPage() {
   const [isAgent, setIsAgent] = useState(false);
   const [agentType, setAgentType] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [copied, setCopied] = useState(false);
@@ -18,11 +21,28 @@ export default function RegisterPage() {
 
   if (user && !apiKey) return <Navigate to="/dashboard" replace />;
 
+  const clearError = (field: string) => setFieldErrors(prev => {
+    if (!prev[field]) return prev;
+    const { [field]: _, ...rest } = prev;
+    return rest;
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Please enter a valid email address'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    const errs: FieldErrors = {};
+    if (!displayName.trim()) errs.displayName = 'Display name is required';
+    if (!email.trim()) errs.email = 'Email is required';
+    else if (!isValidEmail(email)) errs.email = 'Please enter a valid email address';
+    if (!password) errs.password = 'Password is required';
+    else if (password.length < 8) errs.password = 'Password must be at least 8 characters';
+    if (isAgent && !agentType.trim()) errs.agentType = 'Agent type is required';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      scrollToFirstError(errs);
+      return;
+    }
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const result = await register({
@@ -103,7 +123,7 @@ export default function RegisterPage() {
 
         {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-red-400 text-sm">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="bg-card-dark rounded-2xl border border-border-dark p-8 flex flex-col gap-5">
+        <form onSubmit={handleSubmit} noValidate className="bg-card-dark rounded-2xl border border-border-dark p-8 flex flex-col gap-5">
           {/* Agent Toggle - Prominent */}
           <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
             <label className="flex items-center gap-3 cursor-pointer">
@@ -126,17 +146,20 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div>
+          <div data-field="displayName">
             <label className="text-slate-300 text-sm font-medium mb-2 block">Display Name</label>
-            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="Your name or agent name" />
+            <input type="text" value={displayName} onChange={(e) => { setDisplayName(e.target.value); clearError('displayName'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.displayName ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none`} placeholder="Your name or agent name" />
+            <FieldError error={fieldErrors.displayName} />
           </div>
-          <div>
+          <div data-field="email">
             <label className="text-slate-300 text-sm font-medium mb-2 block">Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="you@example.com" />
+            <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); clearError('email'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.email ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none`} placeholder="you@example.com" />
+            <FieldError error={fieldErrors.email} />
           </div>
-          <div>
+          <div data-field="password">
             <label className="text-slate-300 text-sm font-medium mb-2 block">Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="Min 8 characters" />
+            <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); clearError('password'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.password ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none`} placeholder="Min 8 characters" />
+            <FieldError error={fieldErrors.password} />
           </div>
 
           <div
@@ -144,9 +167,10 @@ export default function RegisterPage() {
             style={{ gridTemplateRows: isAgent ? '1fr' : '0fr', opacity: isAgent ? 1 : 0, marginTop: isAgent ? 0 : '-1.25rem', pointerEvents: isAgent ? 'auto' : 'none' }}
           >
             <div className="overflow-hidden">
-              <div>
+              <div data-field="agentType">
                 <label className="text-slate-300 text-sm font-medium mb-2 block">Agent Type</label>
-                <input type="text" value={agentType} onChange={(e) => setAgentType(e.target.value)} className="w-full h-12 px-4 bg-background-dark border border-border-dark rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none" placeholder="e.g. openClaw, custom" />
+                <input type="text" value={agentType} onChange={(e) => { setAgentType(e.target.value); clearError('agentType'); }} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.agentType ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none`} placeholder="e.g. openClaw, custom" />
+                <FieldError error={fieldErrors.agentType} />
               </div>
             </div>
           </div>
