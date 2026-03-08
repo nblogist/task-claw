@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 
 use crate::errors::ApiError;
 use crate::guards::admin::AdminToken;
-use crate::models::dispute::{AdminStatsResponse, DisputeDetail, ResolveDisputeRequest};
+use crate::models::dispute::{AdminStatsResponse, DisputeDetail, EscrowCurrencyBreakdown, ResolveDisputeRequest};
 use crate::models::task::{TaskStatus, TaskListResponse, TaskSummary};
 use crate::models::user::PublicUser;
 use crate::services::task_lifecycle::can_transition;
@@ -56,6 +56,15 @@ pub async fn admin_stats(
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
+    let escrow_by_currency = sqlx::query_as::<_, EscrowCurrencyBreakdown>(
+        r#"SELECT currency, COALESCE(SUM(amount), 0) AS amount, COUNT(*) AS count
+           FROM escrow WHERE status IN ('locked', 'disputed')
+           GROUP BY currency ORDER BY amount DESC"#,
+    )
+    .fetch_all(pool.inner())
+    .await
+    .map_err(|e| ApiError::internal(e.to_string()))?;
+
     Ok(Json(AdminStatsResponse {
         total_tasks: row.total_tasks,
         open_tasks: row.open_tasks,
@@ -64,6 +73,7 @@ pub async fn admin_stats(
         total_escrow_value: row.total_escrow_value.unwrap_or(Decimal::ZERO),
         dispute_count: row.dispute_count,
         total_users: row.total_users,
+        escrow_by_currency,
     }))
 }
 
@@ -94,11 +104,12 @@ struct AdminTaskRow {
     buyer_created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[get("/api/admin/tasks?<status>&<page>&<per_page>")]
+#[get("/api/admin/tasks?<status>&<search>&<page>&<per_page>")]
 pub async fn admin_list_tasks(
     _admin: AdminToken,
     pool: &State<PgPool>,
     status: Option<String>,
+    search: Option<String>,
     page: Option<i64>,
     per_page: Option<i64>,
 ) -> Result<Json<TaskListResponse>, (Status, Json<ApiError>)> {
@@ -106,11 +117,22 @@ pub async fn admin_list_tasks(
     let per_page = per_page.unwrap_or(50).clamp(1, 200);
     let offset = (page - 1) * per_page;
     let status_filter = status.as_deref().unwrap_or("");
+    let search_term = search.as_deref().unwrap_or("").trim();
+    let search_pattern = if search_term.is_empty() { String::new() } else { format!("%{}%", search_term.to_lowercase()) };
 
     let total = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM tasks WHERE ($1 = '' OR status::text = $1)"
+        r#"SELECT COUNT(*) FROM tasks t
+            LEFT JOIN users u ON u.id = t.buyer_id
+            WHERE ($1 = '' OR t.status::text = $1)
+              AND ($2 = '' OR LOWER(t.title) LIKE $2
+                           OR LOWER(t.slug) LIKE $2
+                           OR LOWER(t.category) LIKE $2
+                           OR t.id::text LIKE $2
+                           OR LOWER(u.display_name) LIKE $2
+                           OR LOWER(u.email) LIKE $2)"#
     )
     .bind(status_filter)
+    .bind(&search_pattern)
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -130,10 +152,17 @@ pub async fn admin_list_tasks(
             FROM tasks t
             LEFT JOIN users u ON u.id = t.buyer_id
             WHERE ($1 = '' OR t.status::text = $1)
+              AND ($2 = '' OR LOWER(t.title) LIKE $2
+                           OR LOWER(t.slug) LIKE $2
+                           OR LOWER(t.category) LIKE $2
+                           OR t.id::text LIKE $2
+                           OR LOWER(u.display_name) LIKE $2
+                           OR LOWER(u.email) LIKE $2)
             ORDER BY t.created_at DESC
-            LIMIT $2 OFFSET $3"#,
+            LIMIT $3 OFFSET $4"#,
     )
     .bind(status_filter)
+    .bind(&search_pattern)
     .bind(per_page)
     .bind(offset)
     .fetch_all(pool.inner())

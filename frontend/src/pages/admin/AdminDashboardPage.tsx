@@ -74,6 +74,7 @@ export default function AdminDashboardPage() {
         {statCards.map((card) => {
           const value = stats[card.key];
           const hasDisputes = card.isDispute && stats.dispute_count > 0;
+          const isEscrow = card.key === 'total_escrow_value';
           return (
             <div
               key={card.key}
@@ -90,6 +91,23 @@ export default function AdminDashboardPage() {
               <p className="text-white text-3xl font-bold">
                 {formatValue(value, card.isCurrency)}
               </p>
+              {isEscrow && stats.escrow_by_currency.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border-dark space-y-1.5">
+                  {stats.escrow_by_currency.map((entry) => (
+                    <div key={entry.currency} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">
+                        <span className="inline-block bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-medium mr-1.5">
+                          {entry.currency}
+                        </span>
+                        {entry.count} {entry.count === 1 ? 'escrow' : 'escrows'}
+                      </span>
+                      <span className="text-white font-medium">
+                        {parseFloat(String(entry.amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

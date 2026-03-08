@@ -26,6 +26,14 @@ pub struct Dispute {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, FromRow)]
+pub struct EscrowCurrencyBreakdown {
+    pub currency: String,
+    #[serde(serialize_with = "decimal_format::serialize")]
+    pub amount: Decimal,
+    pub count: i64,
+}
+
 #[derive(Debug, Serialize)]
 pub struct AdminStatsResponse {
     pub total_tasks: i64,
@@ -36,6 +44,7 @@ pub struct AdminStatsResponse {
     pub total_escrow_value: Decimal,
     pub dispute_count: i64,
     pub total_users: i64,
+    pub escrow_by_currency: Vec<EscrowCurrencyBreakdown>,
 }
 
 #[derive(Debug, Serialize, FromRow)]

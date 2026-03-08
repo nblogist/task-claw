@@ -1,9 +1,16 @@
+export interface EscrowCurrencyBreakdown {
+  currency: string;
+  amount: number | string;
+  count: number;
+}
+
 export interface AdminStatsResponse {
   total_tasks: number;
   open_tasks: number;
   completed_tasks: number;
   total_escrow_value: number | string;
   dispute_count: number;
+  escrow_by_currency: EscrowCurrencyBreakdown[];
 }
 
 export interface DisputeDetail {

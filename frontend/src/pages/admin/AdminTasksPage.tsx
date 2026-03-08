@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '../../lib/adminApi';
@@ -6,18 +6,33 @@ import type { Task, TaskListResponse } from '../../lib/types';
 import StatusBadge from '../../components/StatusBadge';
 import { formatDate } from '../../lib/dates';
 
+const STATUSES = ['open', 'bidding', 'in_escrow', 'delivered', 'completed', 'disputed', 'dispute_resolved', 'cancelled', 'expired'];
+const DEBOUNCE_MS = 400;
+
 export default function AdminTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => {
+  const fetchTasks = useCallback(() => {
     setLoading(true);
-    adminApi.get<TaskListResponse>(`/api/admin/tasks?page=${page}&per_page=20`)
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('per_page', '20');
+    if (statusFilter) params.set('status', statusFilter);
+    if (search) params.set('search', search);
+
+    adminApi.get<TaskListResponse>(`/api/admin/tasks?${params}`)
       .then((data) => {
         setTasks(data.tasks);
+        setTotal(data.total);
         setTotalPages(data.total_pages);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       })
@@ -26,7 +41,34 @@ export default function AdminTasksPage() {
         toast.error(message);
       })
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, statusFilter, search]);
+
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  // Debounced search-as-you-type
+  const handleInputChange = (value: string) => {
+    setSearchInput(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(1);
+      setSearch(value);
+    }, DEBOUNCE_MS);
+  };
+
+  // Clean up timer on unmount
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    clearTimeout(debounceRef.current);
+    setPage(1);
+    setSearch(searchInput);
+  };
+
+  const handleStatusChange = (value: string) => {
+    setPage(1);
+    setStatusFilter(value);
+  };
 
   const handleRemove = async (task: Task) => {
     if (!window.confirm(`Are you sure you want to remove "${task.title}"? This cannot be undone.`)) {
@@ -38,6 +80,7 @@ export default function AdminTasksPage() {
       await adminApi.del(`/api/admin/tasks/${task.id}`);
       toast.success('Task removed');
       setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      setTotal((prev) => prev - 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to remove task';
       toast.error(message);
@@ -46,24 +89,71 @@ export default function AdminTasksPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center py-20">
-        <p className="text-slate-400">Loading...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-white text-3xl font-bold mb-1">Task Management</h1>
-        <p className="text-slate-400">View and manage all platform tasks.</p>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-white text-3xl font-bold mb-1">Task Management</h1>
+          <p className="text-slate-400">View and manage all platform tasks.</p>
+        </div>
+        <div className="text-right">
+          <p className="text-3xl font-bold text-white">{total}</p>
+          <p className="text-slate-400 text-sm">{search || statusFilter ? 'matching' : 'total'} tasks</p>
+        </div>
       </div>
 
-      {tasks.length === 0 ? (
+      {/* Search & Filter Bar */}
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <form onSubmit={handleSearch} className="flex-1 flex gap-2">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => handleInputChange(e.target.value)}
+              placeholder="Search by title, slug, category, task ID, buyer name, or email..."
+              className="flex-1 bg-card-dark border border-border-dark rounded-lg px-4 py-2.5 text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-primary/60"
+            />
+            <button
+              type="submit"
+              className="cursor-pointer bg-primary text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:brightness-110 transition-all"
+            >
+              Search
+            </button>
+            {(search || searchInput) && (
+              <button
+                type="button"
+                onClick={() => { clearTimeout(debounceRef.current); setSearchInput(''); setSearch(''); setPage(1); }}
+                className="cursor-pointer bg-card-dark border border-border-dark text-slate-400 px-4 py-2.5 rounded-lg text-sm hover:text-white transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </form>
+          <select
+            value={statusFilter}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="bg-card-dark border border-border-dark rounded-lg px-4 py-2.5 text-slate-200 text-sm focus:outline-none focus:border-primary/60"
+          >
+            <option value="">All statuses</option>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+        </div>
+        <p className="text-slate-500 text-xs">
+          Search by task title, slug, category, task ID, buyer name, or buyer email
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center py-20">
+          <p className="text-slate-400">Loading...</p>
+        </div>
+      ) : tasks.length === 0 ? (
         <div className="flex items-center justify-center py-20">
-          <p className="text-slate-400">No tasks found.</p>
+          <p className="text-slate-400">
+            {search || statusFilter ? 'No tasks match your filters.' : 'No tasks found.'}
+          </p>
         </div>
       ) : (
         <>
