@@ -40,11 +40,14 @@ pub struct BidWithSeller {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateBidRequest {
-    pub price: Decimal,
+    #[serde(default)]
+    pub price: Option<Decimal>,
     #[serde(default = "default_currency")]
     pub currency: String,
-    pub estimated_delivery_days: i32,
-    pub pitch: String,
+    #[serde(default)]
+    pub estimated_delivery_days: Option<i32>,
+    #[serde(default)]
+    pub pitch: Option<String>,
 }
 
 fn default_currency() -> String {
@@ -60,12 +63,16 @@ pub struct UpdateBidRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct BatchBidItem {
-    pub task_id: Uuid,
-    pub price: Decimal,
+    #[serde(default)]
+    pub task_id: Option<Uuid>,
+    #[serde(default)]
+    pub price: Option<Decimal>,
     #[serde(default = "default_currency")]
     pub currency: String,
-    pub estimated_delivery_days: i32,
-    pub pitch: String,
+    #[serde(default)]
+    pub estimated_delivery_days: Option<i32>,
+    #[serde(default)]
+    pub pitch: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

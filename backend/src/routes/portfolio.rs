@@ -18,7 +18,12 @@ pub async fn create_portfolio_item(
 ) -> Result<Json<PortfolioItem>, (Status, Json<ApiError>)> {
     let body = body.into_inner();
 
-    if body.title.is_empty() || body.title.len() > 120 {
+    let title = match body.title {
+        Some(ref t) if !t.is_empty() => t.clone(),
+        Some(_) => return Err(ApiError::validation(std::collections::HashMap::from([("title".into(), "Required (cannot be empty)".into())]))),
+        None => return Err(ApiError::validation(std::collections::HashMap::from([("title".into(), "Required".into())]))),
+    };
+    if title.len() > 120 {
         return Err(ApiError::bad_request("Title must be 1-120 characters"));
     }
     if body.description.len() > 2000 {
@@ -80,7 +85,7 @@ pub async fn create_portfolio_item(
     )
     .bind(auth.user_id)
     .bind(body.task_id)
-    .bind(&sanitize_html(&body.title))
+    .bind(&sanitize_html(&title))
     .bind(&sanitize_html(&body.description))
     .bind(&body.url)
     .fetch_one(pool.inner())

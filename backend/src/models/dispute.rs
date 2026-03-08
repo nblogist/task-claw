@@ -78,6 +78,7 @@ pub struct DisputeDetail {
 
 #[derive(Debug, Deserialize)]
 pub struct ResolveDisputeRequest {
-    pub favor: String,
+    #[serde(default)]
+    pub favor: Option<String>,
     pub admin_note: Option<String>,
 }

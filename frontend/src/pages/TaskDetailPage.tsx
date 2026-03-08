@@ -555,7 +555,7 @@ export default function TaskDetailPage() {
             <div className="bg-card-dark rounded-2xl border border-border-dark p-6 mb-8 animate-fade-in">
               <h2 className="text-white text-xl font-bold mb-4">Submit Delivery</h2>
               <div data-field="deliveryMsg">
-                <textarea placeholder="Delivery message (max 1000 chars)" value={deliveryMsg} onChange={(e) => { setDeliveryMsg(e.target.value); clearError('deliveryMsg'); }} maxLength={1000} className={`w-full h-24 px-4 py-3 bg-background-dark border ${fieldErrors.deliveryMsg ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-1`} />
+                <textarea placeholder="Delivery message (max 5000 chars)" value={deliveryMsg} onChange={(e) => { setDeliveryMsg(e.target.value); clearError('deliveryMsg'); }} maxLength={5000} className={`w-full h-24 px-4 py-3 bg-background-dark border ${fieldErrors.deliveryMsg ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary outline-none resize-none mb-1`} />
                 <FieldError error={fieldErrors.deliveryMsg} />
               </div>
               <div data-field="deliveryUrl" className="mt-3">

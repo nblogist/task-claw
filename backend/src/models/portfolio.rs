@@ -32,7 +32,8 @@ pub struct PortfolioListResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct CreatePortfolioRequest {
-    pub title: String,
+    #[serde(default)]
+    pub title: Option<String>,
     #[serde(default)]
     pub description: String,
     pub task_id: Option<Uuid>,

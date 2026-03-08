@@ -21,7 +21,8 @@ pub struct MessageWithSender {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateMessageRequest {
-    pub content: String,
+    #[serde(default)]
+    pub content: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

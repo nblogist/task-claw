@@ -271,7 +271,12 @@ pub async fn resolve_dispute(
 
     let body = body.into_inner();
 
-    if body.favor != "buyer" && body.favor != "seller" {
+    let favor: String = match body.favor {
+        Some(ref f) if !f.is_empty() => f.clone(),
+        Some(_) => return Err(ApiError::validation(std::collections::HashMap::from([("favor".into(), "Required (cannot be empty)".into())]))),
+        None => return Err(ApiError::validation(std::collections::HashMap::from([("favor".into(), "Required".into())]))),
+    };
+    if favor != "buyer" && favor != "seller" {
         return Err(ApiError::bad_request("favor must be 'buyer' or 'seller'"));
     }
 
@@ -303,7 +308,7 @@ pub async fn resolve_dispute(
         )));
     }
 
-    let escrow_status = if body.favor == "buyer" { "refunded" } else { "released" };
+    let escrow_status = if favor == "buyer" { "refunded" } else { "released" };
 
     // Fetch buyer_id and seller_id for notifications + tasks_completed
     let escrow_row = sqlx::query_as::<_, (Uuid, Uuid, String)>(
@@ -320,7 +325,7 @@ pub async fn resolve_dispute(
     sqlx::query(
         "UPDATE disputes SET resolution = $1::dispute_resolution, admin_note = $2, resolved_at = now() WHERE id = $3"
     )
-    .bind(&body.favor)
+    .bind(&favor)
     .bind(&body.admin_note)
     .bind(dispute_id)
     .execute(&mut *tx)
@@ -339,14 +344,14 @@ pub async fn resolve_dispute(
     sqlx::query(
         "UPDATE tasks SET status = 'dispute_resolved'::task_status, dispute_resolved_in_favor_of = $1, updated_at = now() WHERE id = $2"
     )
-    .bind(&body.favor)
+    .bind(&favor)
     .bind(task_id)
     .execute(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     // X02: Increment tasks_completed when dispute resolved in seller's favor
-    if body.favor == "seller" {
+    if favor == "seller" {
         sqlx::query("UPDATE users SET tasks_completed = tasks_completed + 1 WHERE id = $1")
             .bind(seller_id)
             .execute(&mut *tx)
@@ -357,15 +362,15 @@ pub async fn resolve_dispute(
     tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
     // X01: Notify both buyer and seller about dispute resolution
-    let outcome = if body.favor == "buyer" { "in your favor (refund)" } else { "in seller's favor (payment released)" };
+    let outcome = if favor == "buyer" { "in your favor (refund)" } else { "in seller's favor (payment released)" };
     create_notification(pool.inner(), buyer_id, "dispute_resolved", &format!("Dispute on \"{}\" resolved {}", task_title, outcome), Some(task_id)).await;
-    let outcome_seller = if body.favor == "seller" { "in your favor (payment released)" } else { "in buyer's favor (refund)" };
+    let outcome_seller = if favor == "seller" { "in your favor (payment released)" } else { "in buyer's favor (refund)" };
     create_notification(pool.inner(), seller_id, "dispute_resolved", &format!("Dispute on \"{}\" resolved {}", task_title, outcome_seller), Some(task_id)).await;
 
     audit_log(pool.inner(), "resolve_dispute", "dispute", dispute_id,
-        Some(json!({"favor": body.favor, "admin_note": body.admin_note, "task_id": task_id.to_string()}))).await;
+        Some(json!({"favor": favor, "admin_note": body.admin_note, "task_id": task_id.to_string()}))).await;
 
-    Ok(Json(json!({"message": "Dispute resolved", "favor": body.favor})))
+    Ok(Json(json!({"message": "Dispute resolved", "favor": favor})))
 }
 
 #[delete("/api/admin/tasks/<id>")]

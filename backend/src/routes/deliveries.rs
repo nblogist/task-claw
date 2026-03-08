@@ -49,8 +49,13 @@ pub async fn submit_delivery(
     }
 
     let body = body.into_inner();
-    if body.message.is_empty() || body.message.len() > 1000 {
-        return Err(ApiError::bad_request("Message must be 1-1000 characters"));
+    let message = match body.message {
+        Some(ref m) if !m.is_empty() => m.clone(),
+        Some(_) => return Err(ApiError::validation(std::collections::HashMap::from([("message".into(), "Required (cannot be empty)".into())]))),
+        None => return Err(ApiError::validation(std::collections::HashMap::from([("message".into(), "Required".into())]))),
+    };
+    if message.len() > 5000 {
+        return Err(ApiError::bad_request("Message must be 1-5000 characters"));
     }
 
     // Validate delivery URL — reject non-http(s) schemes (DEF-002: XSS prevention)
@@ -95,7 +100,7 @@ pub async fn submit_delivery(
     )
     .bind(task_id)
     .bind(auth.user_id)
-    .bind(&sanitize_html(&body.message))
+    .bind(&sanitize_html(&message))
     .bind(&body.url)
     .bind(&body.file_url)
     .bind(revision_of)

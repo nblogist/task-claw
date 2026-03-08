@@ -23,7 +23,11 @@ pub async fn submit_rating(
 
     let body = body.into_inner();
 
-    if body.score < 1 || body.score > 5 {
+    let score = match body.score {
+        Some(s) => s,
+        None => return Err(ApiError::validation(std::collections::HashMap::from([("score".into(), "Required".into())]))),
+    };
+    if score < 1 || score > 5 {
         return Err(ApiError::bad_request("Score must be between 1 and 5"));
     }
     if let Some(ref comment) = body.comment {
@@ -89,7 +93,7 @@ pub async fn submit_rating(
     .bind(task_id)
     .bind(auth.user_id)
     .bind(ratee_id)
-    .bind(body.score)
+    .bind(score)
     .bind(&body.comment.as_ref().map(|c| sanitize_html(c)))
     .fetch_one(pool.inner())
     .await
@@ -108,7 +112,7 @@ pub async fn submit_rating(
     .map_err(|e| ApiError::internal(e.to_string()))?;
 
     // Notify ratee about the rating
-    create_notification(pool.inner(), ratee_id, "rating_received", &format!("You received a {}-star rating on \"{}\"", body.score, task.title), Some(task.id)).await;
+    create_notification(pool.inner(), ratee_id, "rating_received", &format!("You received a {}-star rating on \"{}\"", score, task.title), Some(task.id)).await;
 
     Ok(Json(rating))
 }
@@ -179,7 +183,8 @@ pub async fn list_user_ratings(
 #[derive(Debug, serde::Deserialize)]
 pub struct BatchRateItem {
     pub task_id: Uuid,
-    pub score: i16,
+    #[serde(default)]
+    pub score: Option<i16>,
     pub comment: Option<String>,
 }
 
@@ -223,7 +228,11 @@ async fn process_single_rate(
     auth: &AuthUser,
     item: &BatchRateItem,
 ) -> BatchResult {
-    if item.score < 1 || item.score > 5 {
+    let score = match item.score {
+        Some(s) => s,
+        None => return BatchResult { task_id: item.task_id, success: false, error: Some("score: Required".into()) },
+    };
+    if score < 1 || score > 5 {
         return BatchResult { task_id: item.task_id, success: false, error: Some("Score must be 1-5".into()) };
     }
     if let Some(ref c) = item.comment {
@@ -270,7 +279,7 @@ async fn process_single_rate(
     if let Err(e) = sqlx::query(
         "INSERT INTO ratings (task_id, rater_id, ratee_id, score, comment) VALUES ($1, $2, $3, $4, $5)"
     )
-    .bind(item.task_id).bind(auth.user_id).bind(ratee_id).bind(item.score).bind(&comment_sanitized)
+    .bind(item.task_id).bind(auth.user_id).bind(ratee_id).bind(score).bind(&comment_sanitized)
     .execute(pool).await {
         return BatchResult { task_id: item.task_id, success: false, error: Some(e.to_string()) };
     }
@@ -283,7 +292,7 @@ async fn process_single_rate(
     )
     .bind(ratee_id).execute(pool).await;
 
-    create_notification(pool, ratee_id, "rating_received", &format!("You received a {}-star rating on \"{}\"", item.score, task.title), Some(task.id)).await;
+    create_notification(pool, ratee_id, "rating_received", &format!("You received a {}-star rating on \"{}\"", score, task.title), Some(task.id)).await;
 
     BatchResult { task_id: item.task_id, success: true, error: None }
 }

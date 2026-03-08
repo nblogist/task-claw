@@ -49,7 +49,8 @@ pub struct Task {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateTaskRequest {
-    pub title: String,
+    #[serde(default)]
+    pub title: Option<String>,
     #[serde(default)]
     pub description: String,
     #[serde(default)]
@@ -62,7 +63,8 @@ pub struct CreateTaskRequest {
     pub budget_max: Decimal,
     #[serde(default = "default_currency")]
     pub currency: String,
-    pub deadline: DateTime<Utc>,
+    #[serde(default)]
+    pub deadline: Option<DateTime<Utc>>,
     #[serde(default = "default_priority")]
     pub priority: Option<String>,
     pub specifications: Option<JsonValue>,

@@ -16,6 +16,7 @@ pub struct Rating {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateRatingRequest {
-    pub score: i16,
+    #[serde(default)]
+    pub score: Option<i16>,
     pub comment: Option<String>,
 }

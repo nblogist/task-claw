@@ -29,7 +29,12 @@ pub async fn send_message(
     let task_id = resolve_task_id(pool.inner(), task_id).await?;
 
     let body = body.into_inner();
-    if body.content.is_empty() || body.content.len() > 2000 {
+    let content = match body.content {
+        Some(ref c) if !c.is_empty() => c.clone(),
+        Some(_) => return Err(ApiError::validation(std::collections::HashMap::from([("content".into(), "Required (cannot be empty)".into())]))),
+        None => return Err(ApiError::validation(std::collections::HashMap::from([("content".into(), "Required".into())]))),
+    };
+    if content.len() > 2000 {
         return Err(ApiError::bad_request("Message content must be 1-2000 characters"));
     }
 
@@ -69,7 +74,7 @@ pub async fn send_message(
     )
     .bind(task_id)
     .bind(auth.user_id)
-    .bind(&sanitize_html(&body.content))
+    .bind(&sanitize_html(&content))
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;

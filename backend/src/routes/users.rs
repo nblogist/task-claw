@@ -7,6 +7,7 @@ use uuid::Uuid;
 use chrono::{Duration, Utc};
 use rand::Rng;
 
+use std::collections::HashMap;
 use crate::constants::sanitize_html;
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
@@ -126,35 +127,55 @@ pub async fn register(
     }
     let body = body.into_inner();
 
-    if body.email.is_empty() || body.password.is_empty() || body.display_name.is_empty() {
-        return Err(ApiError::bad_request("Email, password, and display_name are required"));
+    let mut errs: HashMap<String, String> = HashMap::new();
+    let email = match body.email {
+        Some(ref e) if !e.is_empty() => e.clone(),
+        _ => { errs.insert("email".into(), "Required".into()); String::new() }
+    };
+    let password = match body.password {
+        Some(ref p) if !p.is_empty() => p.clone(),
+        _ => { errs.insert("password".into(), "Required".into()); String::new() }
+    };
+    let display_name = match body.display_name {
+        Some(ref d) if !d.is_empty() => d.clone(),
+        _ => { errs.insert("display_name".into(), "Required".into()); String::new() }
+    };
+
+    // Field-level format/length checks (only if field was provided)
+    if !errs.contains_key("email") {
+        if email.len() > 255 {
+            errs.insert("email".into(), "Must be 255 characters or fewer".into());
+        } else if !email.contains('@') || email.len() < 5 {
+            errs.insert("email".into(), "Invalid email format".into());
+        }
     }
-    if body.email.len() > 255 {
-        return Err(ApiError::bad_request("Email must be 255 characters or fewer"));
+    if !errs.contains_key("password") {
+        if password.len() < 8 {
+            errs.insert("password".into(), "Must be at least 8 characters".into());
+        } else if password.len() > 128 {
+            errs.insert("password".into(), "Must be 128 characters or fewer".into());
+        }
     }
-    if !body.email.contains('@') || body.email.len() < 5 {
-        return Err(ApiError::bad_request("Invalid email format"));
-    }
-    if body.password.len() < 8 {
-        return Err(ApiError::bad_request("Password must be at least 8 characters"));
-    }
-    if body.password.len() > 128 {
-        return Err(ApiError::bad_request("Password must be 128 characters or fewer"));
-    }
-    if body.display_name.len() > 100 {
-        return Err(ApiError::bad_request("Display name must be 100 characters or fewer"));
+    if !errs.contains_key("display_name") {
+        if display_name.len() > 100 {
+            errs.insert("display_name".into(), "Must be 100 characters or fewer".into());
+        }
     }
     if let Some(ref agent_type) = body.agent_type {
         if agent_type.len() > 100 {
-            return Err(ApiError::bad_request("Agent type must be 100 characters or fewer"));
+            errs.insert("agent_type".into(), "Must be 100 characters or fewer".into());
         }
     }
 
+    if !errs.is_empty() {
+        return Err(ApiError::validation(errs));
+    }
+
     // Sanitize user-supplied text fields
-    let display_name = sanitize_html(&body.display_name);
+    let display_name = sanitize_html(&display_name);
 
     let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE email = $1")
-        .bind(&body.email)
+        .bind(&email)
         .fetch_one(pool.inner())
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -163,7 +184,7 @@ pub async fn register(
         return Err(ApiError::conflict("Email already registered"));
     }
 
-    let password_hash = hash_password(&body.password)
+    let password_hash = hash_password(&password)
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
     // Generate API key only for agent accounts, store SHA-256 hash
@@ -179,7 +200,7 @@ pub async fn register(
            VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING *"#,
     )
-    .bind(&body.email)
+    .bind(&email)
     .bind(&password_hash)
     .bind(&display_name)
     .bind(body.is_agent)
@@ -227,15 +248,30 @@ pub async fn login(
     limiter: &State<RateLimiter>,
     body: Json<LoginRequest>,
 ) -> Result<Json<AuthResponse>, (Status, Json<ApiError>)> {
-    if !limiter.check(&format!("login:{}", body.email)) {
+    let body = body.into_inner();
+
+    let mut errs: HashMap<String, String> = HashMap::new();
+    let email = match body.email {
+        Some(ref e) if !e.is_empty() => e.clone(),
+        _ => { errs.insert("email".into(), "Required".into()); String::new() }
+    };
+    let password = match body.password {
+        Some(ref p) if !p.is_empty() => p.clone(),
+        _ => { errs.insert("password".into(), "Required".into()); String::new() }
+    };
+
+    if !errs.is_empty() {
+        return Err(ApiError::validation(errs));
+    }
+
+    if !limiter.check(&format!("login:{}", email)) {
         return Err(ApiError::new(Status::TooManyRequests, "Too many login attempts. Try again later."));
     }
-    let body = body.into_inner();
 
     let user = sqlx::query_as::<_, User>(
         "SELECT * FROM users WHERE email = $1"
     )
-    .bind(&body.email)
+    .bind(&email)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?
@@ -245,7 +281,7 @@ pub async fn login(
         return Err(ApiError::forbidden("Account is banned"));
     }
 
-    let valid = verify_password(&body.password, &user.password_hash)
+    let valid = verify_password(&password, &user.password_hash)
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
     if !valid {

@@ -70,9 +70,12 @@ pub struct AuthResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterRequest {
-    pub email: String,
-    pub password: String,
-    pub display_name: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub password: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
     #[serde(default)]
     pub is_agent: bool,
     pub agent_type: Option<String>,
@@ -80,6 +83,8 @@ pub struct RegisterRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub password: Option<String>,
 }

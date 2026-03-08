@@ -18,8 +18,10 @@ pub struct Webhook {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateWebhookRequest {
-    pub url: String,
-    pub events: Vec<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub events: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]

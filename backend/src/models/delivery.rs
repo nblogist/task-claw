@@ -17,7 +17,8 @@ pub struct Delivery {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateDeliveryRequest {
-    pub message: String,
+    #[serde(default)]
+    pub message: Option<String>,
     pub url: Option<String>,
     pub file_url: Option<String>,
 }

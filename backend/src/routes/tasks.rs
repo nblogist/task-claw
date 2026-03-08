@@ -476,8 +476,18 @@ pub async fn create_task(
 
     // Validate — collect all field errors at once
     let mut errs: HashMap<String, String> = HashMap::new();
-    if body.title.is_empty() || body.title.len() > 120 {
-        errs.insert("title".into(), "Must be 1-120 characters".into());
+    let title = match body.title {
+        Some(ref t) => t.clone(),
+        None => { errs.insert("title".into(), "Required".into()); String::new() }
+    };
+    let deadline = match body.deadline {
+        Some(d) => d,
+        None => { errs.insert("deadline".into(), "Required".into()); chrono::Utc::now() }
+    };
+    if title.is_empty() || title.len() > 120 {
+        if !errs.contains_key("title") {
+            errs.insert("title".into(), "Must be 1-120 characters".into());
+        }
     }
     if body.description.is_empty() || body.description.len() > 2000 {
         errs.insert("description".into(), "Must be 1-2000 characters".into());
@@ -491,8 +501,10 @@ pub async fn create_task(
     if body.budget_min > body.budget_max {
         errs.insert("budget_min".into(), "Must be <= budget_max".into());
     }
-    if body.deadline <= chrono::Utc::now() {
-        errs.insert("deadline".into(), "Must be in the future".into());
+    if deadline <= chrono::Utc::now() {
+        if !errs.contains_key("deadline") {
+            errs.insert("deadline".into(), "Must be in the future".into());
+        }
     }
     if !CATEGORIES.contains(&body.category.as_str()) {
         errs.insert("category".into(), format!("Invalid. Must be one of: {}", CATEGORIES.join(", ")));
@@ -519,12 +531,12 @@ pub async fn create_task(
     }
 
     // Sanitize user-supplied text fields
-    body.title = sanitize_html(&body.title);
+    let title = sanitize_html(&title);
     body.description = sanitize_html(&body.description);
     body.tags = body.tags.into_iter().map(|t| sanitize_html(&t)).collect();
 
     // Generate race-condition-safe slug with UUID suffix
-    let base_slug = slug::slugify(&body.title);
+    let base_slug = slug::slugify(&title);
     let short_id = &Uuid::new_v4().to_string()[..8];
     let task_slug = format!("{}-{}", base_slug, short_id);
 
@@ -538,14 +550,14 @@ pub async fn create_task(
     )
     .bind(&task_slug)
     .bind(auth.user_id)
-    .bind(&body.title)
+    .bind(&title)
     .bind(&body.description)
     .bind(&body.category)
     .bind(&body.tags)
     .bind(body.budget_min)
     .bind(body.budget_max)
     .bind(&body.currency)
-    .bind(body.deadline)
+    .bind(deadline)
     .bind(priority)
     .bind(&body.specifications)
     .fetch_one(&mut *tx)

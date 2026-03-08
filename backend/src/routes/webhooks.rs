@@ -33,16 +33,27 @@ pub async fn create_webhook(
 ) -> Result<Json<WebhookCreatedResponse>, (Status, Json<ApiError>)> {
     let body = body.into_inner();
 
-    if body.url.is_empty() || body.url.len() > 2048 {
+    let mut errs = std::collections::HashMap::new();
+    let url = match body.url {
+        Some(ref u) if !u.is_empty() => u.clone(),
+        Some(_) => { errs.insert("url".into(), "Required (cannot be empty)".into()); String::new() },
+        None => { errs.insert("url".into(), "Required".into()); String::new() },
+    };
+    let events = match body.events {
+        Some(ref e) if !e.is_empty() => e.clone(),
+        Some(_) => { errs.insert("events".into(), "At least one event is required".into()); vec![] },
+        None => { errs.insert("events".into(), "Required".into()); vec![] },
+    };
+    if !errs.is_empty() {
+        return Err(ApiError::validation(errs));
+    }
+    if url.len() > 2048 {
         return Err(ApiError::bad_request("URL must be 1-2048 characters"));
     }
-    if !body.url.starts_with("https://") && !body.url.starts_with("http://localhost") {
+    if !url.starts_with("https://") && !url.starts_with("http://localhost") {
         return Err(ApiError::bad_request("Webhook URL must use HTTPS (http://localhost allowed for development)"));
     }
-    if body.events.is_empty() {
-        return Err(ApiError::bad_request("At least one event is required"));
-    }
-    for event in &body.events {
+    for event in &events {
         if !WEBHOOK_EVENTS.contains(&event.as_str()) {
             return Err(ApiError::bad_request(format!(
                 "Invalid event '{}'. Valid events: {}", event, WEBHOOK_EVENTS.join(", ")
@@ -72,9 +83,9 @@ pub async fn create_webhook(
            RETURNING *"#,
     )
     .bind(auth.user_id)
-    .bind(&body.url)
+    .bind(&url)
     .bind(&secret)
-    .bind(&body.events)
+    .bind(&events)
     .fetch_one(pool.inner())
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;

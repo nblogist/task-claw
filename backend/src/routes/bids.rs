@@ -139,10 +139,26 @@ pub async fn create_bid(
 
     // Validate — collect all field errors
     let mut errs: HashMap<String, String> = HashMap::new();
-    if body.pitch.is_empty() || body.pitch.len() > 500 {
+
+    // Extract required fields
+    let price = match body.price {
+        Some(p) => p,
+        None => { errs.insert("price".into(), "Required".into()); rust_decimal::Decimal::ZERO }
+    };
+    let estimated_delivery_days = match body.estimated_delivery_days {
+        Some(d) => d,
+        None => { errs.insert("estimated_delivery_days".into(), "Required".into()); 0 }
+    };
+    let pitch = match body.pitch {
+        Some(ref p) => p.clone(),
+        None => { errs.insert("pitch".into(), "Required".into()); String::new() }
+    };
+
+    // Range/format checks (only if field was provided)
+    if body.pitch.is_some() && (pitch.is_empty() || pitch.len() > 500) {
         errs.insert("pitch".into(), "Must be 1-500 characters".into());
     }
-    if body.estimated_delivery_days < 1 || body.estimated_delivery_days > 365 {
+    if body.estimated_delivery_days.is_some() && (estimated_delivery_days < 1 || estimated_delivery_days > 365) {
         errs.insert("estimated_delivery_days".into(), "Must be between 1 and 365".into());
     }
     if !crate::constants::VALID_CURRENCIES.contains(&body.currency.as_str()) {
@@ -179,7 +195,7 @@ pub async fn create_bid(
     }
 
     // Price must be within budget range
-    if body.price < task.budget_min || body.price > task.budget_max {
+    if price < task.budget_min || price > task.budget_max {
         return Err(ApiError::bad_request(format!(
             "Price must be between {} and {}",
             task.budget_min.normalize(), task.budget_max.normalize()
@@ -209,10 +225,10 @@ pub async fn create_bid(
     )
     .bind(task_id)
     .bind(auth.user_id)
-    .bind(body.price)
+    .bind(price)
     .bind(&body.currency)
-    .bind(body.estimated_delivery_days)
-    .bind(&sanitize_html(&body.pitch))
+    .bind(estimated_delivery_days)
+    .bind(&sanitize_html(&pitch))
     .fetch_one(&mut *tx)
     .await
     .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -565,74 +581,101 @@ async fn process_single_bid(
     auth: &AuthUser,
     item: &BatchBidItem,
 ) -> BatchBidResult {
-    // Validate
-    if item.pitch.is_empty() || item.pitch.len() > 500 {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Pitch must be 1-500 characters".into()) };
+    // A zero UUID to use as placeholder when task_id is missing
+    let zero_id = Uuid::nil();
+
+    // Extract required fields with field-level errors
+    let mut errs: HashMap<String, String> = HashMap::new();
+
+    let task_id = match item.task_id {
+        Some(id) => id,
+        None => { errs.insert("task_id".into(), "Required".into()); zero_id }
+    };
+    let price = match item.price {
+        Some(p) => p,
+        None => { errs.insert("price".into(), "Required".into()); rust_decimal::Decimal::ZERO }
+    };
+    let estimated_delivery_days = match item.estimated_delivery_days {
+        Some(d) => d,
+        None => { errs.insert("estimated_delivery_days".into(), "Required".into()); 0 }
+    };
+    let pitch = match item.pitch {
+        Some(ref p) => p.clone(),
+        None => { errs.insert("pitch".into(), "Required".into()); String::new() }
+    };
+
+    // Range/format checks (only if field was provided)
+    if item.pitch.is_some() && (pitch.is_empty() || pitch.len() > 500) {
+        errs.insert("pitch".into(), "Pitch must be 1-500 characters".into());
     }
-    if item.estimated_delivery_days < 1 || item.estimated_delivery_days > 365 {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Delivery days must be 1-365".into()) };
+    if item.estimated_delivery_days.is_some() && (estimated_delivery_days < 1 || estimated_delivery_days > 365) {
+        errs.insert("estimated_delivery_days".into(), "Delivery days must be 1-365".into());
     }
     if !crate::constants::VALID_CURRENCIES.contains(&item.currency.as_str()) {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Invalid currency".into()) };
+        errs.insert("currency".into(), "Invalid currency".into());
+    }
+    if !errs.is_empty() {
+        let error_msg = errs.iter().map(|(k, v)| format!("{}: {}", k, v)).collect::<Vec<_>>().join("; ");
+        return BatchBidResult { task_id, success: false, bid: None, error: Some(error_msg) };
     }
 
     let task = match sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
-        .bind(item.task_id).fetch_optional(pool).await {
+        .bind(task_id).fetch_optional(pool).await {
         Ok(Some(t)) => t,
-        Ok(None) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Task not found".into()) },
-        Err(e) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) },
+        Ok(None) => return BatchBidResult { task_id, success: false, bid: None, error: Some("Task not found".into()) },
+        Err(e) => return BatchBidResult { task_id, success: false, bid: None, error: Some(e.to_string()) },
     };
 
     if task.buyer_id == auth.user_id {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Cannot bid on own task".into()) };
+        return BatchBidResult { task_id, success: false, bid: None, error: Some("Cannot bid on own task".into()) };
     }
     if task.status != TaskStatus::Open && task.status != TaskStatus::Bidding {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Task not accepting bids".into()) };
+        return BatchBidResult { task_id, success: false, bid: None, error: Some("Task not accepting bids".into()) };
     }
     if item.currency != task.currency {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(format!("Currency must match task ({})", task.currency)) };
+        return BatchBidResult { task_id, success: false, bid: None, error: Some(format!("Currency must match task ({})", task.currency)) };
     }
-    if item.price < task.budget_min || item.price > task.budget_max {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(format!("Price must be {}-{}", task.budget_min.normalize(), task.budget_max.normalize())) };
+    if price < task.budget_min || price > task.budget_max {
+        return BatchBidResult { task_id, success: false, bid: None, error: Some(format!("Price must be {}-{}", task.budget_min.normalize(), task.budget_max.normalize())) };
     }
 
     // Check duplicate
     let existing = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM bids WHERE task_id = $1 AND seller_id = $2 AND status != 'withdrawn'")
-        .bind(item.task_id).bind(auth.user_id).fetch_one(pool).await.unwrap_or(0);
+        .bind(task_id).bind(auth.user_id).fetch_one(pool).await.unwrap_or(0);
     if existing > 0 {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some("Already bid on this task".into()) };
+        return BatchBidResult { task_id, success: false, bid: None, error: Some("Already bid on this task".into()) };
     }
 
     let mut tx = match sqlx::Pool::begin(pool).await {
         Ok(tx) => tx,
-        Err(e) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) },
+        Err(e) => return BatchBidResult { task_id, success: false, bid: None, error: Some(e.to_string()) },
     };
 
     let bid = match sqlx::query_as::<_, Bid>(
         r#"INSERT INTO bids (task_id, seller_id, price, currency, estimated_delivery_days, pitch)
            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"#
     )
-    .bind(item.task_id).bind(auth.user_id).bind(item.price)
-    .bind(&item.currency).bind(item.estimated_delivery_days).bind(&sanitize_html(&item.pitch))
+    .bind(task_id).bind(auth.user_id).bind(price)
+    .bind(&item.currency).bind(estimated_delivery_days).bind(&sanitize_html(&pitch))
     .fetch_one(&mut *tx).await {
         Ok(b) => b,
-        Err(e) => return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) },
+        Err(e) => return BatchBidResult { task_id, success: false, bid: None, error: Some(e.to_string()) },
     };
 
     // Transition open -> bidding
     if task.status == TaskStatus::Open {
         let _ = sqlx::query("UPDATE tasks SET status = 'bidding', updated_at = now() WHERE id = $1")
-            .bind(item.task_id).execute(&mut *tx).await;
+            .bind(task_id).execute(&mut *tx).await;
     }
 
     if let Err(e) = tx.commit().await {
-        return BatchBidResult { task_id: item.task_id, success: false, bid: None, error: Some(e.to_string()) };
+        return BatchBidResult { task_id, success: false, bid: None, error: Some(e.to_string()) };
     }
 
     // Notify buyer
     create_notification(pool, task.buyer_id, "bid_received", &format!("New bid received on \"{}\"", task.title), Some(task.id)).await;
 
-    BatchBidResult { task_id: item.task_id, success: true, bid: Some(bid), error: None }
+    BatchBidResult { task_id, success: true, bid: Some(bid), error: None }
 }
 
 // ── Aggregate bid endpoints ──────────────────────────────────────────

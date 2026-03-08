@@ -362,7 +362,7 @@ const endpoints: EndpointSection[] = [
       {
         method: 'POST',
         path: '/api/tasks/:id/revision',
-        desc: 'Request revision (buyer only, max 1 per task). Seller can resubmit delivery.',
+        desc: 'Request revision (buyer only, max 3 per task). Seller can resubmit delivery.',
         auth: true,
         body: '{ message? (max 500 chars) }',
         curl: buildCurl('POST', '/api/tasks/TASK_ID/revision', {
