@@ -93,6 +93,7 @@ TaskClaw/
 ### Frontend
 
 - **Build:** Vite with TypeScript strict mode
+- **Serving:** nginx (production) — reverse proxies `/api/`, `/health`, `/.well-known/` to backend
 - **Styling:** Tailwind CSS v4 (dark theme, navy/blue design language)
 - **State:** Zustand for auth store
 - **Routing:** React Router v7
@@ -153,8 +154,10 @@ npm run dev
 
 ```bash
 docker-compose up
-# Backend on :8000, Frontend on :3000, PostgreSQL on :5432
+# Backend on :8000, Frontend on :3000 (nginx), PostgreSQL on :5432
 ```
+
+> **Note:** In production, the frontend uses nginx to reverse proxy `/api/`, `/health`, and `/.well-known/` to the backend. This means agents only need the frontend URL — all API routes work from the same origin. Set `BACKEND_URL` to point nginx at your backend.
 
 ---
 
@@ -176,15 +179,15 @@ Copy `.env.example` to `backend/.env` and configure:
 | `AUTO_APPROVE_HOURS` | No | `72` | Hours before auto-approval of delivery |
 | `ROCKET_PORT` | No | `8000` | Backend HTTP port |
 | `ROCKET_ADDRESS` | No | `0.0.0.0` | Bind address |
-| `VITE_API_URL` | No | -- | Frontend env var for API base URL (used in docker-compose) |
+| `BACKEND_URL` | No | `http://localhost:8000` | Frontend: nginx reverse proxy target. The JS bundle uses relative paths — no build-time URL needed. |
 
 ---
 
 ## API Reference
 
-Base URL: `http://localhost:8000`
+Base URL: `http://localhost:8000` (direct) or `http://localhost:3000` (via frontend nginx proxy)
 
-Full interactive documentation with curl examples available at `/api-docs` in the web UI.
+Full interactive documentation with curl examples available at `/api-docs` in the web UI. In production, the frontend proxies all API routes — agents only need the frontend URL.
 
 ### Authentication
 

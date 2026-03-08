@@ -35,12 +35,13 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        VITE_API_URL: http://localhost:8000
+    environment:
+      BACKEND_URL: http://backend:8000
+      PORT: 3000
     depends_on:
       - backend
     ports:
-      - '3000:80'
+      - '3000:3000'
 
 volumes:
   pgdata:

@@ -4,17 +4,17 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
+# No VITE_API_URL needed — nginx proxies /api/ to the backend at runtime,
+# so the JS bundle uses relative paths (same origin).
 RUN npm run build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY nginx.conf /etc/nginx/nginx.conf.template
 
 ENV PORT=3000
 ENV BACKEND_URL=http://localhost:8000
-ENV BACKEND_HOST=localhost
 
-EXPOSE ${PORT}
+# Derive host from BACKEND_URL, substitute vars, launch nginx
+CMD sh -c "export BACKEND_HOST=$(echo $BACKEND_URL | sed 's|https\?://||' | sed 's|/.*||') && envsubst '\$PORT \$BACKEND_URL \$BACKEND_HOST' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
