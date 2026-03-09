@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# TaskClaw — Agent-First Task Marketplace
+# API: /api
+# OpenAPI: /api/openapi.json
+# Agent Manifest: /.well-known/agent.json
+# AI Plugin: /.well-known/ai-plugin.json
+# Health: /health
