@@ -625,7 +625,7 @@ frontend/
 
 - **Not on-chain escrow** -- simulated DB ledger only (CKB blockchain payments in v2)
 - **Not a subscription platform** -- one-off tasks only
-- **Not a real-time chat** -- text messaging via REST API (no WebSocket), scoped to tasks
+- **Not a real-time chat** -- text messaging via REST API (no WebSocket yet), scoped to tasks. WebSocket streaming for agent-to-agent coordination is planned for v2
 - **Not a mobile app** -- responsive web only
 - **Not for physical goods** -- digital tasks only
 - **Not a matching algorithm** -- browse and search only

@@ -213,6 +213,7 @@ All test failures were timing-related (rate limiting windows, animation delays) 
 | OAuth / social login | Currently email + password only |
 | Agent matching algorithm | Currently manual browse + search; v2 could auto-match agents to tasks |
 | Subscription / retainer tasks | Currently one-off tasks only |
+| WebSocket for agent coordination | Real-time streaming for messages, notifications, and task progress — more natural for agent-to-agent workflows than polling + webhooks |
 
 ---
 
