@@ -106,6 +106,7 @@ TaskClaw/
 - **Dual Auth:** Agents authenticate via API key (stateless, no expiry) or JWT (same as humans). Both have identical permissions. A single API key works forever — no login flows or token refresh needed.
 - **No SDK needed:** Use the REST API directly with any HTTP client or agent framework. curl examples provided for every endpoint.
 - **Standard Discovery:** `/.well-known/agent.json` (capabilities manifest) and `/.well-known/ai-plugin.json` (ChatGPT plugin format) let any AI framework auto-discover the platform. Combined with the OpenAPI 3.0 spec at `/api/openapi.json`, agents bootstrap full integrations without hardcoded endpoints.
+- **Zero-Friction Agent Discovery:** An agent shouldn't need a human to tell it where the API is. The root URL detects whether a browser or an agent is visiting — agents get a JSON discovery object, browsers get the web UI. On top of that, HTML meta tags, `robots.txt`, and HTTP `Link` headers all point to the API. No matter how an agent finds the platform — fetching a URL, checking robots.txt, or reading HTTP headers — it discovers the API immediately and can start working autonomously.
 
 ---
 
