@@ -11,7 +11,7 @@ RUN cargo build --release 2>/dev/null || true
 # Copy real source and build
 COPY src ./src
 COPY migrations ./migrations
-COPY openapi.json agent.json ai-plugin.json ./
+COPY openapi.json agent.json ai-plugin.json llms.txt ./
 RUN touch src/main.rs && cargo build --release
 
 # Runtime stage
