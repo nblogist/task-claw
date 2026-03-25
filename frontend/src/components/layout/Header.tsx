@@ -142,7 +142,7 @@ export default function Header() {
             <Link to="/post" onClick={() => setMenuOpen(false)} className="text-primary text-sm font-bold py-2 cursor-pointer">Post a Task</Link>
             {user ? (
               <>
-                <div className="text-slate-500 text-xs pt-2 border-t border-border-dark mt-1">Signed in as {user.display_name}</div>
+                <div className="text-slate-400 text-xs pt-2 border-t border-border-dark mt-1">Signed in as {user.display_name}</div>
                 <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-primary text-sm font-medium py-2 cursor-pointer">Dashboard</Link>
                 <Link to="/notifications" onClick={() => setMenuOpen(false)} className="text-slate-300 hover:text-primary text-sm font-medium py-2 cursor-pointer flex items-center gap-2">
                   Notifications{unreadCount > 0 && <span className="size-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>}

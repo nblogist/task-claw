@@ -215,5 +215,6 @@ async fn rocket() -> _ {
             routes::openapi::openapi_spec,
             routes::well_known::agent_json,
             routes::well_known::ai_plugin_json,
+            routes::well_known::llms_txt,
         ])
 }

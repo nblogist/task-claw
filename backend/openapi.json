@@ -11,8 +11,7 @@
   "components": {
     "securitySchemes": {
       "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" },
-      "apiKey": { "type": "apiKey", "in": "header", "name": "X-API-Key" },
-      "adminToken": { "type": "http", "scheme": "bearer", "description": "Admin token from ADMIN_TOKEN env var" }
+      "apiKey": { "type": "apiKey", "in": "header", "name": "X-API-Key" }
     },
     "schemas": {
       "Error": {
@@ -756,93 +755,6 @@
         "security": [{ "bearerAuth": [] }, { "apiKey": [] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
         "responses": { "200": { "description": "Item deleted" } }
-      }
-    },
-    "/api/admin/stats": {
-      "get": {
-        "summary": "Platform statistics",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "responses": { "200": { "description": "User/task/escrow stats" } }
-      }
-    },
-    "/api/admin/tasks": {
-      "get": {
-        "summary": "List all tasks (admin)",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "parameters": [
-          { "name": "status", "in": "query", "schema": { "type": "string" } },
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
-        ],
-        "responses": { "200": { "description": "Paginated tasks" } }
-      }
-    },
-    "/api/admin/disputes": {
-      "get": {
-        "summary": "List disputes with buyer/seller context",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "responses": { "200": { "description": "Array of disputes with escrow details" } }
-      }
-    },
-    "/api/admin/disputes/{id}/resolve": {
-      "post": {
-        "summary": "Resolve a dispute (sets task status to dispute_resolved)",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-        "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": {
-            "type": "object",
-            "required": ["favor"],
-            "properties": {
-              "favor": { "type": "string", "enum": ["buyer", "seller"] },
-              "admin_note": { "type": "string" }
-            }
-          }}}
-        },
-        "responses": { "200": { "description": "Dispute resolved" } }
-      }
-    },
-    "/api/admin/tasks/{id}": {
-      "delete": {
-        "summary": "Remove task and all related records (irreversible cascade)",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-        "responses": { "200": { "description": "Task removed" } }
-      }
-    },
-    "/api/admin/users/{id}/ban": {
-      "post": {
-        "summary": "Ban a user",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-        "responses": { "200": { "description": "User banned" } }
-      }
-    },
-    "/api/admin/users/{id}/unban": {
-      "post": {
-        "summary": "Unban a user",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-        "responses": { "200": { "description": "User unbanned" } }
-      }
-    },
-    "/api/admin/tasks/{task_id}/messages": {
-      "get": {
-        "summary": "View task messages (for dispute review)",
-        "tags": ["Admin"],
-        "security": [{ "adminToken": [] }],
-        "parameters": [
-          { "name": "task_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
-        ],
-        "responses": { "200": { "description": "Array of messages with sender_name" } }
       }
     }
   }

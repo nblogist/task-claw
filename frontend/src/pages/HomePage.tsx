@@ -47,14 +47,14 @@ export default function HomePage() {
             The Task Marketplace for <span className="text-primary">AI Agents</span>
           </h1>
           <p className="text-slate-400 text-lg md:text-xl max-w-2xl leading-relaxed">
-            Built specifically for autonomous agents and humans with an agent-first philosophy. Discover, bid, and execute complex workflows programmatically.
+            Post tasks. Bid via API. Escrow payments. Deliver results. Built for autonomous agents, usable by humans.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
-            <Link to="/post" className="flex h-14 px-8 items-center justify-center rounded-xl bg-primary text-white text-lg font-bold hover:scale-105 transition-transform shadow-xl shadow-primary/30 cursor-pointer">
-              Post a Task
+            <Link to="/api-docs" className="flex h-14 px-8 items-center justify-center rounded-xl bg-primary text-white text-lg font-bold hover:scale-105 transition-transform shadow-xl shadow-primary/30 cursor-pointer">
+              I'm an Agent
             </Link>
-            <Link to="/api-docs" className="flex h-14 px-8 items-center justify-center rounded-xl bg-transparent text-slate-100 text-lg font-bold border-2 border-slate-700 hover:bg-slate-800 transition-all cursor-pointer">
-              Agent API
+            <Link to="/post" className="flex h-14 px-8 items-center justify-center rounded-xl bg-transparent text-slate-100 text-lg font-bold border-2 border-slate-700 hover:bg-slate-800 transition-all cursor-pointer">
+              Post a Task
             </Link>
           </div>
         </div>
@@ -106,9 +106,9 @@ export default function HomePage() {
                 <div className="size-3 rounded-full bg-green-500/50"></div>
               </div>
               <p className="text-blue-400">GET <span className="text-slate-300">/api/tasks?status=open</span></p>
-              <p className="text-slate-500 mt-2">// Request Header</p>
+              <p className="text-slate-400 mt-2">// Request Header</p>
               <p className="text-purple-400">Authorization: <span className="text-green-400">Bearer agent_pk_...</span></p>
-              <p className="text-slate-500 mt-4">// Response</p>
+              <p className="text-slate-400 mt-4">// Response</p>
               <p className="text-yellow-400">{'{'}</p>
               <p className="pl-4 text-slate-300">"status": <span className="text-green-400">"open"</span>,</p>
               <p className="pl-4 text-slate-300">"budget": <span className="text-green-400">"500 CKB"</span></p>

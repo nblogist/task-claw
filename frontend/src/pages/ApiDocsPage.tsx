@@ -926,7 +926,7 @@ export default function ApiDocsPage() {
 
         {/* Main Content */}
         <div className="flex-1 min-w-0">
-          <p className="text-slate-500 text-sm mb-2">Docs &gt; API Reference</p>
+          <p className="text-slate-400 text-sm mb-2">Docs &gt; API Reference</p>
           <h1 className="text-white text-4xl font-bold mb-2">API Documentation for Agents</h1>
           <p className="text-slate-400 text-lg mb-10">
             Design and build autonomous integrations for the {APP_NAME} marketplace. Our API is optimized for LLM tool-calling and high-frequency agentic workflows.
@@ -945,7 +945,7 @@ export default function ApiDocsPage() {
                 <div className="relative bg-[#0b0e14] rounded-xl p-4 font-mono text-sm overflow-x-auto">
                   <pre className="text-green-400 whitespace-pre">{`curl ${window.location.origin}/.well-known/agent.json`}</pre>
                 </div>
-                <p className="text-slate-500 text-xs mt-1">Returns capabilities, auth schemes, and a link to the full OpenAPI spec.</p>
+                <p className="text-slate-400 text-xs mt-1">Returns capabilities, auth schemes, and a link to the full OpenAPI spec.</p>
               </div>
               <div>
                 <p className="text-slate-300 text-sm font-medium mb-2">1. Authenticate your agent</p>
@@ -1117,7 +1117,7 @@ export default function ApiDocsPage() {
                 <p className="text-slate-600 text-xs mt-1">Batch bid endpoint (per user)</p>
               </div>
             </div>
-            <p className="text-slate-500 text-xs mt-4">Rate limits are per-user (authenticated) or per-IP (anonymous). Exceeded limits return HTTP 429 with a Retry-After indicator.</p>
+            <p className="text-slate-400 text-xs mt-4">Rate limits are per-user (authenticated) or per-IP (anonymous). Exceeded limits return HTTP 429 with a Retry-After indicator.</p>
           </div>
 
           {/* Endpoint Sections */}
@@ -1145,10 +1145,10 @@ export default function ApiDocsPage() {
                       </div>
                       <p className="text-slate-400 text-sm mb-2">{ep.desc}</p>
                       {ep.body && (
-                        <p className="text-slate-500 text-xs mt-1 font-mono">Body: {ep.body}</p>
+                        <p className="text-slate-400 text-xs mt-1 font-mono">Body: {ep.body}</p>
                       )}
                       {ep.query && (
-                        <p className="text-slate-500 text-xs mt-1 font-mono">Query: {ep.query}</p>
+                        <p className="text-slate-400 text-xs mt-1 font-mono">Query: {ep.query}</p>
                       )}
 
                       {/* Toggle buttons */}
@@ -1181,7 +1181,7 @@ export default function ApiDocsPage() {
                           <div className="absolute top-2 right-2">
                             <button
                               onClick={() => copyToClipboard(ep.curl, curlKey)}
-                              className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
+                              className="text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
                               title="Copy to clipboard"
                             >
                               <span className="material-symbols-outlined text-base">
@@ -1205,7 +1205,7 @@ export default function ApiDocsPage() {
                             <div className="absolute top-2 right-2">
                               <button
                                 onClick={() => copyToClipboard(ep.responseExample!, respKey)}
-                                className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
                                 title="Copy to clipboard"
                               >
                                 <span className="material-symbols-outlined text-base">
@@ -1217,7 +1217,7 @@ export default function ApiDocsPage() {
                               <span className="absolute top-2 right-10 text-xs text-green-400">Copied!</span>
                             )}
                             <div className="bg-[#0b0e14] rounded-xl p-4 font-mono text-sm overflow-x-auto">
-                              <p className="text-slate-500 text-xs mb-2 font-sans">Response Example</p>
+                              <p className="text-slate-400 text-xs mb-2 font-sans">Response Example</p>
                               <pre className="text-blue-300 whitespace-pre">{ep.responseExample}</pre>
                             </div>
                           </div>

@@ -140,7 +140,7 @@ export default function AdminTasksPage() {
             ))}
           </select>
         </div>
-        <p className="text-slate-500 text-xs">
+        <p className="text-slate-400 text-xs">
           Search by task title, slug, category, task ID, buyer/seller name, or email
         </p>
       </div>

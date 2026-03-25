@@ -73,7 +73,7 @@ export default function DashboardPage() {
           <div className="space-y-3 mb-10">
             {summaries.map((s) => (
               <div key={s.currency} className="bg-card-dark rounded-2xl border border-border-dark p-5">
-                <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-3">{s.currency}</p>
+                <p className="text-slate-400 text-xs uppercase font-bold tracking-widest mb-3">{s.currency}</p>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-green-400 text-xl font-bold">{parseFloat(String(s.total_earned)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -84,7 +84,7 @@ export default function DashboardPage() {
                     <p className="text-slate-400 text-xs">Spent</p>
                   </div>
                   <div>
-                    <p className="text-yellow-400 text-xl font-bold">{parseFloat(String(s.in_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-slate-500">Simulated</span></p>
+                    <p className="text-yellow-400 text-xl font-bold">{parseFloat(String(s.in_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-slate-400">Simulated</span></p>
                     <p className="text-slate-400 text-xs">In Escrow</p>
                   </div>
                 </div>
@@ -103,7 +103,7 @@ export default function DashboardPage() {
                 <div className="mt-2 pt-2 border-t border-border-dark space-y-1">
                   {data.currency_breakdown.filter(c => parseFloat(String(c.earned)) > 0).map(c => (
                     <div key={c.currency} className="flex justify-between text-xs">
-                      <span className="text-slate-500"><span className="inline-block bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
+                      <span className="text-slate-400"><span className="inline-block bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
                       <span className="text-green-400 font-medium">{parseFloat(String(c.earned)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
@@ -120,7 +120,7 @@ export default function DashboardPage() {
                 <div className="mt-2 pt-2 border-t border-border-dark space-y-1">
                   {data.currency_breakdown.filter(c => parseFloat(String(c.spent)) > 0).map(c => (
                     <div key={c.currency} className="flex justify-between text-xs">
-                      <span className="text-slate-500"><span className="inline-block bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
+                      <span className="text-slate-400"><span className="inline-block bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
                       <span className="text-red-400 font-medium">{parseFloat(String(c.spent)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
@@ -134,13 +134,13 @@ export default function DashboardPage() {
               </div>
               <p className="text-yellow-400 text-2xl font-bold">
                 {parseFloat(String(data.active_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                <span className="text-xs text-slate-500 ml-2">Simulated</span>
+                <span className="text-xs text-slate-400 ml-2">Simulated</span>
               </p>
               {data.currency_breakdown.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border-dark space-y-1">
                   {data.currency_breakdown.filter(c => parseFloat(String(c.in_escrow)) > 0).map(c => (
                     <div key={c.currency} className="flex justify-between text-xs">
-                      <span className="text-slate-500"><span className="inline-block bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
+                      <span className="text-slate-400"><span className="inline-block bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded font-medium mr-1">{c.currency}</span></span>
                       <span className="text-yellow-400 font-medium">{parseFloat(String(c.in_escrow)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
@@ -245,7 +245,7 @@ export default function DashboardPage() {
               <p className="text-slate-400">No transactions yet.</p>
             ) : (
               <>
-                <p className="text-slate-500 text-sm mb-4">{earnings.total} transaction{earnings.total !== 1 ? 's' : ''}</p>
+                <p className="text-slate-400 text-sm mb-4">{earnings.total} transaction{earnings.total !== 1 ? 's' : ''}</p>
                 <div className="space-y-3">
                   {earnings.transactions.map((tx: EarningsTransaction) => (
                     <Link key={tx.id} to={`/tasks/${tx.task_id}`} className="block bg-card-dark rounded-xl border border-border-dark p-5 hover:border-primary/40 cursor-pointer">
@@ -260,7 +260,7 @@ export default function DashboardPage() {
                           <p className={`font-bold text-lg ${tx.role === 'seller' ? 'text-green-400' : 'text-red-400'}`}>
                             {tx.role === 'seller' ? '+' : '-'}{parseFloat(String(tx.amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
                           </p>
-                          <p className="text-slate-500 text-xs capitalize">{tx.status}</p>
+                          <p className="text-slate-400 text-xs capitalize">{tx.status}</p>
                         </div>
                       </div>
                     </Link>

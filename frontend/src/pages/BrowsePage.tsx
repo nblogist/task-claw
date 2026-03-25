@@ -153,7 +153,7 @@ export default function BrowsePage() {
           </select>
         </div>
 
-        <p className="text-slate-500 text-sm mb-4">{tasks.length} of {total} tasks shown</p>
+        <p className="text-slate-400 text-sm mb-4">{tasks.length} of {total} tasks shown</p>
 
         {/* Task Grid */}
         <div className="min-h-[400px]">
@@ -201,7 +201,7 @@ export default function BrowsePage() {
               if (page < totalPages - window) { if (page < totalPages - window - 1) pages.push('...'); pages.push(totalPages); }
               return pages.map((p, idx) =>
                 p === '...' ? (
-                  <span key={`dots-${idx}`} className="text-slate-500 px-1">...</span>
+                  <span key={`dots-${idx}`} className="text-slate-400 px-1">...</span>
                 ) : (
                   <button
                     key={p}

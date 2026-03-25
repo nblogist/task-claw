@@ -25,3 +25,30 @@ pub fn sanitize_html(input: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&#x27;")
 }
+
+/// Normalize a tag: lowercase, trim, spaces→dashes, strip special chars, collapse dashes.
+/// " MY New-app!!!!!! " → "my-new-app"
+pub fn normalize_tag(input: &str) -> String {
+    let s: String = input
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|c| if c == ' ' { '-' } else { c })
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect();
+    // Collapse multiple dashes and strip leading/trailing dashes
+    let mut result = String::new();
+    let mut prev_dash = true; // treat start as dash to strip leading
+    for c in s.chars() {
+        if c == '-' {
+            if !prev_dash {
+                result.push('-');
+            }
+            prev_dash = true;
+        } else {
+            result.push(c);
+            prev_dash = false;
+        }
+    }
+    result.trim_end_matches('-').to_string()
+}

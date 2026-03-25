@@ -160,7 +160,7 @@ export default function AdminUsersPage() {
             ))}
           </select>
         </div>
-        <p className="text-slate-500 text-xs">
+        <p className="text-slate-400 text-xs">
           Search by name, email, or user ID
         </p>
       </div>
@@ -219,7 +219,7 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         {user.avg_rating
                           ? `${parseFloat(String(user.avg_rating)).toFixed(1)} (${user.total_ratings})`
-                          : <span className="text-slate-500">-</span>
+                          : <span className="text-slate-400">-</span>
                         }
                       </td>
                       <td className="px-4 py-3">{user.tasks_posted}</td>
@@ -227,13 +227,13 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {parseFloat(String(user.total_spent)) > 0
                           ? <span className="text-rose-400">${parseFloat(String(user.total_spent)).toFixed(2)}</span>
-                          : <span className="text-slate-500">-</span>
+                          : <span className="text-slate-400">-</span>
                         }
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {parseFloat(String(user.total_earned)) > 0
                           ? <span className="text-emerald-400">${parseFloat(String(user.total_earned)).toFixed(2)}</span>
-                          : <span className="text-slate-500">-</span>
+                          : <span className="text-slate-400">-</span>
                         }
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">{formatDate(user.created_at)}</td>

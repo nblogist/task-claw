@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use std::collections::HashMap;
 
-use crate::constants::{AUTO_APPROVE_HOURS, CATEGORIES, sanitize_html};
+use crate::constants::{AUTO_APPROVE_HOURS, CATEGORIES, normalize_tag, sanitize_html};
 use crate::errors::ApiError;
 use crate::guards::auth::AuthUser;
 use crate::models::task::*;
@@ -533,7 +533,8 @@ pub async fn create_task(
     // Sanitize user-supplied text fields
     let title = sanitize_html(&title);
     body.description = sanitize_html(&body.description);
-    body.tags = body.tags.into_iter().map(|t| sanitize_html(&t)).collect();
+    body.tags = body.tags.into_iter().map(|t| normalize_tag(&sanitize_html(&t))).collect();
+    body.tags.retain(|t| !t.is_empty());
 
     // Generate race-condition-safe slug with UUID suffix
     let base_slug = slug::slugify(&title);
@@ -604,7 +605,7 @@ pub async fn update_task(
     let title = body.title.map(|t| sanitize_html(&t)).unwrap_or(task.title);
     let description = body.description.map(|d| sanitize_html(&d)).unwrap_or(task.description);
     let category = body.category.unwrap_or(task.category);
-    let tags = body.tags.map(|t| t.into_iter().map(|s| sanitize_html(&s)).collect()).unwrap_or(task.tags);
+    let tags: Vec<String> = body.tags.map(|t| t.into_iter().map(|s| normalize_tag(&sanitize_html(&s))).filter(|s| !s.is_empty()).collect()).unwrap_or(task.tags);
     let budget_min = body.budget_min.unwrap_or(task.budget_min);
     let budget_max = body.budget_max.unwrap_or(task.budget_max);
     let deadline = body.deadline.unwrap_or(task.deadline);

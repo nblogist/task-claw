@@ -94,10 +94,10 @@ export default function NotificationsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${n.read ? 'text-slate-400' : 'text-slate-200'}`}>{n.message}</p>
-                    <p className="text-slate-500 text-xs mt-1">{formatDate(n.created_at, true)}</p>
+                    <p className="text-slate-400 text-xs mt-1">{formatDate(n.created_at, true)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 mt-1">
-                    {n.task_slug && <span className="material-symbols-outlined text-slate-500 text-sm">open_in_new</span>}
+                    {n.task_slug && <span className="material-symbols-outlined text-slate-400 text-sm">open_in_new</span>}
                     {!n.read && <span className="size-2 rounded-full bg-primary" />}
                   </div>
                 </div>

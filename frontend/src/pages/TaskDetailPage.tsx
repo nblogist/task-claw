@@ -392,7 +392,7 @@ export default function TaskDetailPage() {
                 'bg-slate-500/20 text-slate-400'
               }`}>{task.priority}</span>
             )}
-            <span className="text-slate-500 text-sm">{task.view_count} views</span>
+            <span className="text-slate-400 text-sm">{task.view_count} views</span>
           </div>
 
           <div className="flex items-start justify-between gap-4 mb-4">
@@ -656,8 +656,8 @@ export default function TaskDetailPage() {
                   <div key={d.id} className="bg-card-dark rounded-xl border border-border-dark p-5">
                     <p className="text-slate-200 mb-2">{d.message}</p>
                     {d.url && <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm cursor-pointer">{d.url}</a>}
-                    {d.revision_of && <p className="text-slate-500 text-xs mt-1">Revision of previous delivery</p>}
-                    <p className="text-slate-500 text-xs mt-2">{formatDate(d.created_at, true)}</p>
+                    {d.revision_of && <p className="text-slate-400 text-xs mt-1">Revision of previous delivery</p>}
+                    <p className="text-slate-400 text-xs mt-2">{formatDate(d.created_at, true)}</p>
                   </div>
                 ))}
               </div>
@@ -775,7 +775,7 @@ export default function TaskDetailPage() {
                     <div className="flex gap-6 text-sm">
                       <span className="text-white font-bold">{parseFloat(String(bid.price)).toLocaleString()} {bid.currency}</span>
                       <span className="text-slate-400">Est. {bid.estimated_delivery_days} day{bid.estimated_delivery_days !== 1 ? 's' : ''} delivery</span>
-                      <span className="text-slate-500 text-xs">{formatDate(bid.created_at)}</span>
+                      <span className="text-slate-400 text-xs">{formatDate(bid.created_at)}</span>
                     </div>
                     {isBuyer && bid.status === 'pending' && (statusStr === 'open' || statusStr === 'bidding') && (
                       <div className="flex gap-2 mt-3">
@@ -824,25 +824,25 @@ export default function TaskDetailPage() {
         <div className="w-full lg:w-80 flex-shrink-0">
           <div className="bg-card-dark rounded-2xl border border-border-dark p-6 space-y-6 lg:sticky lg:top-24">
             <div>
-              <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Budget</p>
+              <p className="text-slate-400 text-xs uppercase font-bold tracking-widest mb-1">Budget</p>
               <p className="text-white text-2xl font-bold">
                 {parseFloat(String(task.budget_min)).toLocaleString()} - {parseFloat(String(task.budget_max)).toLocaleString()} {task.currency}
               </p>
             </div>
             <div>
-              <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Deadline</p>
-              <p className="text-slate-200">{formatDate(task.deadline, true)} <span className="text-slate-500 text-xs">(local time)</span></p>
+              <p className="text-slate-400 text-xs uppercase font-bold tracking-widest mb-1">Deadline</p>
+              <p className="text-slate-200">{formatDate(task.deadline, true)} <span className="text-slate-400 text-xs">(local time)</span></p>
             </div>
             <div>
-              <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Posted by</p>
+              <p className="text-slate-400 text-xs uppercase font-bold tracking-widest mb-1">Posted by</p>
               <Link to={`/profile/${task.buyer_id}`} className="text-white font-semibold hover:text-primary cursor-pointer">
                 {task.buyer?.display_name}
               </Link>
               {task.buyer?.is_agent && <span className="ml-2 text-primary text-xs font-bold">AGENT</span>}
-              <p className="text-slate-500 text-xs mt-1">{formatDate(task.created_at, true)}</p>
+              <p className="text-slate-400 text-xs mt-1">{formatDate(task.created_at, true)}</p>
             </div>
             <div>
-              <p className="text-slate-500 text-xs uppercase font-bold tracking-widest mb-1">Category</p>
+              <p className="text-slate-400 text-xs uppercase font-bold tracking-widest mb-1">Category</p>
               <p className="text-slate-200">{task.category}</p>
             </div>
           </div>

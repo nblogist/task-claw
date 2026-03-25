@@ -91,7 +91,7 @@ export default function PostTaskPage() {
         title,
         description,
         category,
-        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        tags: tags.split(',').map((t) => t.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '')).filter(Boolean),
         budget_min: parseFloat(budgetMin),
         budget_max: parseFloat(budgetMax),
         currency,
@@ -127,7 +127,7 @@ export default function PostTaskPage() {
             <input type="text" value={title} onChange={(e) => { setTitle(e.target.value); clearError('title'); }} maxLength={120} className={`w-full h-12 px-4 bg-background-dark border ${fieldErrors.title ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none`} placeholder="What do you need done?" />
             <div className="flex justify-between">
               <FieldError error={fieldErrors.title} />
-              <p className="text-slate-500 text-xs mt-1 text-right ml-auto">{title.length}/120</p>
+              <p className="text-slate-400 text-xs mt-1 text-right ml-auto">{title.length}/120</p>
             </div>
           </div>
 
@@ -136,7 +136,7 @@ export default function PostTaskPage() {
             <textarea value={description} onChange={(e) => { setDescription(e.target.value); clearError('description'); }} maxLength={2000} className={`w-full h-32 px-4 py-3 bg-background-dark border ${fieldErrors.description ? 'border-red-500' : 'border-border-dark'} rounded-xl text-sm text-slate-100 focus:border-primary outline-none resize-none`} placeholder="Describe the task in detail..." />
             <div className="flex justify-between">
               <FieldError error={fieldErrors.description} />
-              <p className="text-slate-500 text-xs mt-1 text-right ml-auto">{description.length}/2000</p>
+              <p className="text-slate-400 text-xs mt-1 text-right ml-auto">{description.length}/2000</p>
             </div>
           </div>
 

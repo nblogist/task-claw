@@ -245,10 +245,10 @@ export default function ProfilePage() {
                         <span className="text-yellow-400 text-sm">{'★'.repeat(r.score)}{'☆'.repeat(5 - r.score)}</span>
                         <span className="text-white text-sm font-semibold">{r.rater_name}</span>
                       </div>
-                      <span className="text-slate-500 text-xs">{formatDate(r.created_at)}</span>
+                      <span className="text-slate-400 text-xs">{formatDate(r.created_at)}</span>
                     </div>
                     {r.comment && <p className="text-slate-300 text-sm">{r.comment}</p>}
-                    <p className="text-slate-500 text-xs mt-1">Task: {r.task_title}</p>
+                    <p className="text-slate-400 text-xs mt-1">Task: {r.task_title}</p>
                   </div>
                 ))}
               </div>
@@ -295,14 +295,14 @@ export default function ProfilePage() {
                           <p className="text-white font-semibold">{item.title}</p>
                           {item.description && <p className="text-slate-400 text-sm mt-1">{item.description}</p>}
                           {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary text-sm hover:underline cursor-pointer">{item.url}</a>}
-                          <div className="flex gap-3 mt-2 text-xs text-slate-500">
+                          <div className="flex gap-3 mt-2 text-xs text-slate-400">
                             {item.task_title && <span>Task: {item.task_title}</span>}
                             {item.task_rating != null && <span className="text-yellow-400">{'★'.repeat(Math.round(Number(item.task_rating)))}</span>}
                             <span>{formatDate(item.created_at)}</span>
                           </div>
                         </div>
                         {isOwnProfile && (
-                          <button onClick={() => handleDeletePortfolio(item.id)} className="text-slate-500 hover:text-red-400 cursor-pointer flex-shrink-0">
+                          <button onClick={() => handleDeletePortfolio(item.id)} className="text-slate-400 hover:text-red-400 cursor-pointer flex-shrink-0">
                             <span className="material-symbols-outlined text-base">delete</span>
                           </button>
                         )}

@@ -126,7 +126,7 @@ export default function AdminDisputesPage() {
                         </Link>
                         <button
                           onClick={() => setExpanded(expanded === d.id ? null : d.id)}
-                          className="block cursor-pointer text-slate-500 hover:text-slate-300 text-[10px] mt-1 transition-colors"
+                          className="block cursor-pointer text-slate-400 hover:text-slate-300 text-[10px] mt-1 transition-colors"
                         >
                           {expanded === d.id ? 'Hide details' : 'Show details'}
                         </button>
@@ -165,7 +165,7 @@ export default function AdminDisputesPage() {
                           <div className="text-xs">
                             <span className="text-emerald-400">Resolved: {d.resolution}</span>
                             {d.admin_note && (
-                              <p className="text-slate-500 mt-1">{d.admin_note}</p>
+                              <p className="text-slate-400 mt-1">{d.admin_note}</p>
                             )}
                           </div>
                         ) : (
@@ -189,12 +189,12 @@ export default function AdminDisputesPage() {
                         <td colSpan={9} className="px-4 pb-4 pt-3 border-b border-border-dark">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
-                              <p className="text-slate-500 text-xs uppercase font-bold mb-1">Task Description</p>
+                              <p className="text-slate-400 text-xs uppercase font-bold mb-1">Task Description</p>
                               <p className="text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto">{d.task_description}</p>
                             </div>
                             {d.bid_pitch && (
                               <div>
-                                <p className="text-slate-500 text-xs uppercase font-bold mb-1">Accepted Bid</p>
+                                <p className="text-slate-400 text-xs uppercase font-bold mb-1">Accepted Bid</p>
                                 <p className="text-slate-300 mb-1">{d.bid_pitch}</p>
                                 {d.bid_price != null && (
                                   <p className="text-primary font-semibold">
@@ -205,7 +205,7 @@ export default function AdminDisputesPage() {
                             )}
                             {d.delivery_message && (
                               <div>
-                                <p className="text-slate-500 text-xs uppercase font-bold mb-1">
+                                <p className="text-slate-400 text-xs uppercase font-bold mb-1">
                                   Latest Delivery ({d.delivery_count} total)
                                 </p>
                                 <p className="text-slate-300 mb-1">{d.delivery_message}</p>
@@ -226,9 +226,9 @@ export default function AdminDisputesPage() {
                               {messagesFor === d.task_id && (
                                 <div className="mt-2 bg-background-dark rounded-lg border border-border-dark p-3 max-h-60 overflow-y-auto">
                                   {loadingMessages ? (
-                                    <p className="text-slate-500 text-xs">Loading messages...</p>
+                                    <p className="text-slate-400 text-xs">Loading messages...</p>
                                   ) : messages.length === 0 ? (
-                                    <p className="text-slate-500 text-xs">No messages exchanged.</p>
+                                    <p className="text-slate-400 text-xs">No messages exchanged.</p>
                                   ) : (
                                     <div className="space-y-2">
                                       {messages.map((m) => (
