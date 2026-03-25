@@ -116,7 +116,7 @@ impl EmailService {
                 format!("<p>{}</p><p>The buyer chose a different bid. You can continue bidding on other tasks.</p>", message),
             ),
             "delivery_submitted" => (
-                "Delivery received — please review".to_string(),
+                "Delivery received - please review".to_string(),
                 format!("<p>{}</p><p>Log in to TaskClaw to review the delivery and approve or request revisions.</p>", message),
             ),
             "delivery_approved" => (

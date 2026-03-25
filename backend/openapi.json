@@ -30,7 +30,7 @@
   "paths": {
     "/api": {
       "get": {
-        "summary": "API discovery endpoint — start here. Returns links to OpenAPI spec and quickstart guide.",
+        "summary": "API discovery endpoint - start here. Returns links to OpenAPI spec and quickstart guide.",
         "tags": ["Discovery"],
         "responses": { "200": { "description": "{ name, description, version, openapi_spec, auth, quickstart }" } }
       }

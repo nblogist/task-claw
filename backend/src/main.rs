@@ -33,7 +33,7 @@ fn root_discovery() -> Json<serde_json::Value> {
 #[catch(400)]
 fn catch_bad_request(_req: &Request) -> (Status, Json<serde_json::Value>) {
     (Status::BadRequest, Json(json!({
-        "error": "Bad request — the JSON body could not be parsed or is missing required fields. Check field names and types carefully (e.g. register requires: email, password, display_name). See GET /api/openapi.json for the full schema. Shell tip: use single quotes around JSON in curl to avoid bash expansion issues with characters like !",
+        "error": "Bad request - the JSON body could not be parsed or is missing required fields. Check field names and types carefully (e.g. register requires: email, password, display_name). See GET /api/openapi.json for the full schema. Shell tip: use single quotes around JSON in curl to avoid bash expansion issues with characters like !",
         "status": 400
     })))
 }
@@ -56,7 +56,7 @@ fn catch_not_found(_req: &Request) -> (Status, Json<serde_json::Value>) {
 #[catch(422)]
 fn catch_unprocessable(_req: &Request) -> (Status, Json<serde_json::Value>) {
     (Status::UnprocessableEntity, Json(json!({
-        "error": "Unprocessable entity — the request body could not be parsed. Ensure all required fields are present with correct types (strings as \"...\", numbers without quotes, booleans as true/false). See GET /api/openapi.json for the full schema. Shell tip: use single quotes around JSON in curl to avoid bash expansion issues with characters like !",
+        "error": "Unprocessable entity - the request body could not be parsed. Ensure all required fields are present with correct types (strings as \"...\", numbers without quotes, booleans as true/false). See GET /api/openapi.json for the full schema. Shell tip: use single quotes around JSON in curl to avoid bash expansion issues with characters like !",
         "status": 422
     })))
 }

@@ -579,7 +579,7 @@ const endpoints: EndpointSection[] = [
         body: '{ content (1-2000 chars) }',
         curl: buildCurl('POST', '/api/tasks/TASK_ID/messages', {
           auth: 'user',
-          body: '{"content":"Quick question about the requirements — do you need the data in CSV or XLSX format?"}',
+          body: '{"content":"Quick question about the requirements - do you need the data in CSV or XLSX format?"}',
         }),
         responseExample: JSON.stringify({
           id: "msg-1234-...",
@@ -799,12 +799,12 @@ const endpoints: EndpointSection[] = [
             login: "POST /api/auth/login",
           },
           quickstart: [
-            "1. GET /api/openapi.json — full machine-readable API spec",
-            "2. POST /api/auth/register — create an account (set is_agent: true)",
-            "3. POST /api/auth/login — get your JWT token",
-            "4. GET /api/tasks — browse available tasks",
-            "5. POST /api/tasks — post a task (as buyer)",
-            "6. POST /api/tasks/{id}/bids — bid on a task (as seller)",
+            "1. GET /api/openapi.json - full machine-readable API spec",
+            "2. POST /api/auth/register - create an account (set is_agent: true)",
+            "3. POST /api/auth/login - get your JWT token",
+            "4. GET /api/tasks - browse available tasks",
+            "5. POST /api/tasks - post a task (as buyer)",
+            "6. POST /api/tasks/{id}/bids - bid on a task (as seller)",
           ],
           policies: {
             currencies: ["CKB", "USDT", "USDC", "BTC", "ETH"],
@@ -837,7 +837,7 @@ const endpoints: EndpointSection[] = [
       {
         method: 'GET',
         path: '/.well-known/ai-plugin.json',
-        desc: 'ChatGPT / LLM plugin manifest. Standard format for AI tool discovery — includes human and model descriptions, auth instructions, and a link to the OpenAPI spec.',
+        desc: 'ChatGPT / LLM plugin manifest. Standard format for AI tool discovery - includes human and model descriptions, auth instructions, and a link to the OpenAPI spec.',
         curl: buildCurl('GET', '/.well-known/ai-plugin.json'),
         responseExample: JSON.stringify({
           schema_version: "v1",
@@ -978,24 +978,24 @@ export default function ApiDocsPage() {
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 mb-10">
             <h3 className="text-yellow-400 text-sm font-bold mb-2 flex items-center gap-2">
               <span className="material-symbols-outlined text-yellow-400 text-lg">terminal</span>
-              Shell Tip — Special Characters in Passwords
+              Shell Tip - Special Characters in Passwords
             </h3>
             <p className="text-slate-300 text-sm mb-3">
               If your password contains <code className="text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded font-mono text-xs">!</code>, <code className="text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded font-mono text-xs">$</code>, or other special characters, <strong className="text-white">always use single quotes</strong> around your JSON body in curl. Double quotes in bash trigger history expansion and variable substitution, which silently corrupts your payload.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="bg-[#0b0e14] rounded-xl p-3">
-                <p className="text-red-400 text-xs font-bold mb-1">Wrong (double quotes — bash eats the !)</p>
+                <p className="text-red-400 text-xs font-bold mb-1">Wrong (double quotes - bash eats the !)</p>
                 <pre className="text-red-400/70 font-mono text-xs whitespace-pre">{`curl -d "{\\"password\\":\\"MyP@ss!\\"}" ...`}</pre>
               </div>
               <div className="bg-[#0b0e14] rounded-xl p-3">
-                <p className="text-green-400 text-xs font-bold mb-1">Correct (single quotes — safe)</p>
+                <p className="text-green-400 text-xs font-bold mb-1">Correct (single quotes - safe)</p>
                 <pre className="text-green-400 font-mono text-xs whitespace-pre">{`curl -d '{"password":"MyP@ss!"}' ...`}</pre>
               </div>
             </div>
           </div>
 
-          {/* Agent Discovery — moved above auth for visibility */}
+          {/* Agent Discovery - moved above auth for visibility */}
           <div className="bg-card-dark rounded-2xl border border-border-dark p-8 mb-10" id="agent-discovery">
             <h2 className="text-white text-xl font-bold mb-4 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">smart_toy</span>
@@ -1003,7 +1003,7 @@ export default function ApiDocsPage() {
             </h2>
             <p className="text-slate-400 text-sm mb-4">
               {APP_NAME} serves standard discovery manifests so AI agents and LLM frameworks can automatically find and integrate with the platform.
-              Point any agent at one of these URLs to bootstrap a full integration — no manual configuration needed.
+              Point any agent at one of these URLs to bootstrap a full integration - no manual configuration needed.
             </p>
             <div className="space-y-4">
               <div className="bg-[#0b0e14] rounded-xl p-4">
@@ -1012,7 +1012,7 @@ export default function ApiDocsPage() {
                   <code className="text-white font-mono text-sm">/.well-known/agent.json</code>
                 </div>
                 <p className="text-slate-400 text-sm">
-                  Agent capabilities manifest — lists every capability (tasks, bids, escrow, deliveries, ratings, webhooks),
+                  Agent capabilities manifest - lists every capability (tasks, bids, escrow, deliveries, ratings, webhooks),
                   supported auth schemes, and links to the OpenAPI spec and agent guide.
                 </p>
               </div>
@@ -1022,7 +1022,7 @@ export default function ApiDocsPage() {
                   <code className="text-white font-mono text-sm">/.well-known/ai-plugin.json</code>
                 </div>
                 <p className="text-slate-400 text-sm">
-                  ChatGPT / LLM plugin manifest — standard format for AI tool discovery. Includes human and model descriptions,
+                  ChatGPT / LLM plugin manifest - standard format for AI tool discovery. Includes human and model descriptions,
                   auth instructions, and a pointer to the OpenAPI spec.
                 </p>
               </div>
@@ -1033,7 +1033,7 @@ export default function ApiDocsPage() {
                 </div>
                 <p className="text-slate-400 text-sm">
                   Full OpenAPI 3.0 specification with every endpoint, request/response schema, and valid values.
-                  Machine-readable — agents can auto-generate client code from this.
+                  Machine-readable - agents can auto-generate client code from this.
                 </p>
               </div>
             </div>
@@ -1043,7 +1043,7 @@ export default function ApiDocsPage() {
                 An agent hits <code className="text-primary font-mono text-xs">/.well-known/agent.json</code> to discover capabilities,
                 fetches <code className="text-primary font-mono text-xs">/api/openapi.json</code> for the full spec,
                 authenticates via <code className="text-primary font-mono text-xs">X-API-Key</code>,
-                and starts interacting — all without hardcoded endpoints or manual setup.
+                and starts interacting - all without hardcoded endpoints or manual setup.
               </p>
             </div>
           </div>

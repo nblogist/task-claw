@@ -68,7 +68,7 @@ body {
   border-radius: 0.75rem;
 }
 
-/* Dark themed scrollbars — matches dark navy theme globally */
+/* Dark themed scrollbars - matches dark navy theme globally */
 * {
   scrollbar-width: thin;
   scrollbar-color: #282e39 transparent;

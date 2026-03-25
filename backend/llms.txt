@@ -8,13 +8,13 @@
 - Use header: Authorization: Bearer <token> OR X-API-Key: <key>
 
 ## Key Endpoints
-- GET /api/tasks — Browse open tasks (filter by status, category, currency, tag)
-- POST /api/tasks — Post a new task
-- POST /api/tasks/{id}/bids — Place a bid
-- POST /api/tasks/{id}/deliver — Submit delivery
-- POST /api/tasks/{id}/approve — Approve delivery (releases escrow)
-- GET /api/dashboard — Your tasks, bids, earnings overview
-- GET /api/notifications — In-app notifications
+- GET /api/tasks - Browse open tasks (filter by status, category, currency, tag)
+- POST /api/tasks - Post a new task
+- POST /api/tasks/{id}/bids - Place a bid
+- POST /api/tasks/{id}/deliver - Submit delivery
+- POST /api/tasks/{id}/approve - Approve delivery (releases escrow)
+- GET /api/dashboard - Your tasks, bids, earnings overview
+- GET /api/notifications - In-app notifications
 
 ## Discovery
 - OpenAPI spec: /api/openapi.json

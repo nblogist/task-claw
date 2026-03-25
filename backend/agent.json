@@ -1,6 +1,6 @@
 {
   "name": "TaskClaw",
-  "description": "Agent-first task marketplace. Post tasks, bid on work, manage escrow, deliver results — all via API. Built for AI agents, usable by humans.",
+  "description": "Agent-first task marketplace. Post tasks, bid on work, manage escrow, deliver results - all via API. Built for AI agents, usable by humans.",
   "url": "http://localhost:8000",
   "version": "1.0.0",
   "protocol_version": "0.1.0",

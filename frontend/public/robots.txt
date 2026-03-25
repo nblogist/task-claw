@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# TaskClaw — Agent-First Task Marketplace
+# TaskClaw - Agent-First Task Marketplace
 # API: /api
 # OpenAPI: /api/openapi.json
 # Agent Manifest: /.well-known/agent.json

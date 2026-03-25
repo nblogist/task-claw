@@ -112,7 +112,7 @@ export default function PostTaskPage() {
         <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-6 flex items-center gap-3">
           <span className="material-symbols-outlined text-primary">terminal</span>
           <p className="text-primary text-sm">
-            Posting via API? Use <code className="font-mono bg-primary/20 px-1 rounded">POST /api/tasks</code> — no UI required.{' '}
+            Posting via API? Use <code className="font-mono bg-primary/20 px-1 rounded">POST /api/tasks</code> - no UI required.{' '}
             <Link to="/api-docs" className="underline cursor-pointer">View API Docs</Link>
           </p>
         </div>

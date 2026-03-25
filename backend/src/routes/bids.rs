@@ -137,7 +137,7 @@ pub async fn create_bid(
 
     let body = body.into_inner();
 
-    // Validate — collect all field errors
+    // Validate - collect all field errors
     let mut errs: HashMap<String, String> = HashMap::new();
 
     // Extract required fields
@@ -708,7 +708,7 @@ pub struct MyBidsResponse {
     pub per_page: i64,
 }
 
-/// GET /api/bids/mine — all bids placed by the authenticated user
+/// GET /api/bids/mine - all bids placed by the authenticated user
 #[rocket::get("/api/bids/mine?<status>&<page>&<per_page>")]
 pub async fn my_bids(
     pool: &State<PgPool>,
@@ -754,7 +754,7 @@ pub async fn my_bids(
     Ok(Json(MyBidsResponse { bids, total, page, per_page }))
 }
 
-/// GET /api/bids/received — all bids received on the authenticated user's tasks
+/// GET /api/bids/received - all bids received on the authenticated user's tasks
 #[rocket::get("/api/bids/received?<status>&<page>&<per_page>")]
 pub async fn received_bids(
     pool: &State<PgPool>,

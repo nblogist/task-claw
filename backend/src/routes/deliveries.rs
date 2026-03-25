@@ -58,7 +58,7 @@ pub async fn submit_delivery(
         return Err(ApiError::bad_request("Message must be 1-5000 characters"));
     }
 
-    // Validate delivery URL — reject non-http(s) schemes (DEF-002: XSS prevention)
+    // Validate delivery URL - reject non-http(s) schemes (DEF-002: XSS prevention)
     if let Some(ref url) = body.url {
         let trimmed = url.trim();
         if !trimmed.is_empty()
@@ -69,7 +69,7 @@ pub async fn submit_delivery(
         }
     }
 
-    // Validate file_url — reject non-http(s) schemes (X03: XSS prevention)
+    // Validate file_url - reject non-http(s) schemes (X03: XSS prevention)
     if let Some(ref file_url) = body.file_url {
         let trimmed = file_url.trim();
         if !trimmed.is_empty()
@@ -150,7 +150,7 @@ pub async fn approve_delivery(
 
     let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
-    // Release escrow — guard with WHERE status = 'locked' to prevent double-release race
+    // Release escrow - guard with WHERE status = 'locked' to prevent double-release race
     let escrow_result = sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1 AND status = 'locked'")
         .bind(task_id)
         .execute(&mut *tx)
@@ -162,7 +162,7 @@ pub async fn approve_delivery(
         return Err(ApiError::new(rocket::http::Status::Conflict, "Escrow already released or not found"));
     }
 
-    // Update task to completed — guard with WHERE status = 'delivered'
+    // Update task to completed - guard with WHERE status = 'delivered'
     let updated = sqlx::query_as::<_, Task>(
         "UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 AND status = 'delivered' RETURNING *"
     )

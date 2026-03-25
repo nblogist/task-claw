@@ -12,7 +12,7 @@ pub struct Claims {
     pub is_agent: bool,
     pub exp: usize,
     #[serde(default)]
-    pub tv: i32, // token_version — used to invalidate tokens on password change
+    pub tv: i32, // token_version - used to invalidate tokens on password change
 }
 
 pub fn create_token_with_version(user_id: Uuid, email: &str, is_agent: bool, token_version: i32) -> Result<String, jsonwebtoken::errors::Error> {
@@ -55,7 +55,7 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool, bcrypt::Bcryp
     bcrypt::verify(password, hash)
 }
 
-/// SHA-256 hash for API keys (fast, deterministic — suitable for API key lookup)
+/// SHA-256 hash for API keys (fast, deterministic - suitable for API key lookup)
 pub fn hash_api_key(key: &str) -> String {
     use sha2::{Sha256, Digest};
     let result = Sha256::digest(key.as_bytes());

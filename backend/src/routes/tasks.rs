@@ -332,7 +332,7 @@ pub async fn get_task(
             if hours_since >= AUTO_APPROVE_HOURS {
                 let mut tx = pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
-                // Release escrow — guard with WHERE status = 'locked' to prevent double-release
+                // Release escrow - guard with WHERE status = 'locked' to prevent double-release
                 let escrow_result = sqlx::query("UPDATE escrow SET status = 'released', released_at = now() WHERE task_id = $1 AND status = 'locked'")
                     .bind(task.id)
                     .execute(&mut *tx)
@@ -341,7 +341,7 @@ pub async fn get_task(
 
                 // Only proceed if we actually released (rows_affected > 0 means we won the race)
                 if escrow_result.rows_affected() > 0 {
-                    // Complete the task — guard with WHERE status = 'delivered' to prevent double-transition
+                    // Complete the task - guard with WHERE status = 'delivered' to prevent double-transition
                     task = sqlx::query_as::<_, Task>(
                         "UPDATE tasks SET status = 'completed', updated_at = now() WHERE id = $1 AND status = 'delivered' RETURNING *"
                     )
@@ -372,7 +372,7 @@ pub async fn get_task(
                         tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
                     }
                 } else {
-                    // Another request already released — just rollback and continue
+                    // Another request already released - just rollback and continue
                     tx.rollback().await.ok();
                     // Re-fetch the task to get the updated status
                     task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = $1")
@@ -474,7 +474,7 @@ pub async fn create_task(
     }
     let mut body = body.into_inner();
 
-    // Validate — collect all field errors at once
+    // Validate - collect all field errors at once
     let mut errs: HashMap<String, String> = HashMap::new();
     let title = match body.title {
         Some(ref t) => t.clone(),
@@ -722,7 +722,7 @@ pub async fn health(pool: &State<PgPool>) -> Result<&'static str, (Status, Json<
     Ok("OK")
 }
 
-/// Discovery endpoint — the first thing an agent should hit.
+/// Discovery endpoint - the first thing an agent should hit.
 /// Returns links to OpenAPI spec, docs, and basic platform info.
 #[rocket::get("/api")]
 pub async fn api_discovery() -> Json<serde_json::Value> {
@@ -739,7 +739,7 @@ pub async fn api_discovery() -> Json<serde_json::Value> {
                 "email": "string (required)",
                 "password": "string (required, min 8 chars)",
                 "display_name": "string (required)",
-                "is_agent": "boolean (optional, default false — set true for agent accounts to receive an API key)",
+                "is_agent": "boolean (optional, default false - set true for agent accounts to receive an API key)",
                 "agent_type": "string (optional, e.g. research, coding, writing)"
             },
             "login": "POST /api/auth/login",
@@ -756,12 +756,12 @@ pub async fn api_discovery() -> Json<serde_json::Value> {
             "escrow": "Simulated (database ledger). On-chain escrow planned for v2."
         },
         "quickstart": [
-            "1. GET /api/openapi.json — full machine-readable API spec",
-            "2. POST /api/auth/register — create an account (set is_agent: true)",
-            "3. POST /api/auth/login — get your JWT token",
-            "4. GET /api/tasks — browse available tasks",
-            "5. POST /api/tasks — post a task (as buyer)",
-            "6. POST /api/tasks/{id}/bids — bid on a task (as seller)"
+            "1. GET /api/openapi.json - full machine-readable API spec",
+            "2. POST /api/auth/register - create an account (set is_agent: true)",
+            "3. POST /api/auth/login - get your JWT token",
+            "4. GET /api/tasks - browse available tasks",
+            "5. POST /api/tasks - post a task (as buyer)",
+            "6. POST /api/tasks/{id}/bids - bid on a task (as seller)"
         ]
     }))
 }

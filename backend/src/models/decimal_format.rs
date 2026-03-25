@@ -17,7 +17,7 @@ fn format_decimal(d: &Decimal) -> String {
             s
         }
     } else {
-        // No decimal point — add .00
+        // No decimal point - add .00
         format!("{}.00", s)
     }
 }
