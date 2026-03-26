@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #508df7;
-  --color-background-dark: #0F0F2D;
-  --color-card-dark: #1A1A3E;
-  --color-border-dark: #282e39;
+  --color-primary: #6C63FF;
+  --color-background-dark: #111113;
+  --color-card-dark: #1A1A1D;
+  --color-border-dark: #2A2A2E;
 }
 
 @font-face {
@@ -16,12 +16,12 @@
 body {
   font-family: 'Inter', sans-serif;
   margin: 0;
-  background-color: #0F0F2D;
-  color: #f1f5f9;
+  background-color: #111113;
+  color: #e4e4e7;
 }
 
 .hero-gradient {
-  background: radial-gradient(circle at center, rgba(80, 141, 247, 0.15) 0%, rgba(15, 15, 45, 0) 70%);
+  background: radial-gradient(ellipse at 50% 0%, rgba(108, 99, 255, 0.08) 0%, transparent 60%);
 }
 
 /* Global cursor pointer for interactive elements */
@@ -62,7 +62,7 @@ body {
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #1A1A3E 25%, #282e39 50%, #1A1A3E 75%);
+  background: linear-gradient(90deg, #1A1A1D 25%, #2A2A2E 50%, #1A1A1D 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 0.75rem;
@@ -71,7 +71,7 @@ body {
 /* Dark themed scrollbars - matches dark navy theme globally */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #282e39 transparent;
+  scrollbar-color: #2A2A2E transparent;
 }
 *::-webkit-scrollbar {
   width: 6px;
@@ -81,9 +81,9 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: #282e39;
+  background-color: #2A2A2E;
   border-radius: 3px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background-color: #508df7;
+  background-color: #6C63FF;
 }

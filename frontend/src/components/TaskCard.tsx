@@ -24,7 +24,7 @@ export default function TaskCard({ task }: { task: Task }) {
   return (
     <Link
       to={`/tasks/${task.slug}`}
-      className="rounded-2xl bg-card-dark border border-border-dark p-6 flex flex-col gap-5 hover:border-primary/40 hover:shadow-2xl transition-all cursor-pointer group"
+      className="rounded-lg bg-card-dark border border-border-dark p-5 flex flex-col gap-4 hover:border-zinc-600 transition-colors cursor-pointer group"
     >
       <div className="flex justify-between items-start">
         <StatusBadge status={task.status} />

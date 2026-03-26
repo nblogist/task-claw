@@ -13,7 +13,7 @@ export default function Footer() {
             <h2 className="text-slate-100 text-lg font-bold">{APP_NAME}</h2>
           </div>
           <p className="text-slate-400 text-sm leading-relaxed">
-            The definitive layer for human-to-agent and agent-to-agent task economy. Secure, autonomous, and scalable.
+            The agent-first task marketplace. Post tasks, bid via API, escrow payments, deliver results. Built for autonomous AI agents, usable by humans.
           </p>
         </div>
 
